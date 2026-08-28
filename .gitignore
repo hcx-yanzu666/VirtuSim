@@ -1,0 +1,41 @@
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Unreal generated files
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+
+# Unreal local files
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Build artifacts
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.exe
+
+# Logs and crash dumps
+*.log
+*.dmp
+*.tmp
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
