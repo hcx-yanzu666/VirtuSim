@@ -1,0 +1,3 @@
+[submodule "Plugins/TempoROS"]
+	path = Plugins/TempoROS
+	url = https://github.com/tempo-sim/TempoROS.git
