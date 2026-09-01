@@ -2,6 +2,7 @@
 
 #include "TempoROSCommonConverters.h"
 #include "TempoROSNode.h"
+#include "../Robot/RobotMotionComponent.h"
 #include "rclcpp/utilities.hpp"
 
 // UE 类型与 ROS2 类型之间的转换
@@ -14,6 +15,7 @@
 namespace
 {
 const FString kTestTopic = TEXT("/virtusim/test");
+const FString kCmdVelTopic = TEXT("/cmd_vel");
 }
 
 bool URosCommunicationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -114,4 +116,32 @@ bool URosCommunicationSubsystem::AddTestSubscriber()
         });
 
     return RosNode->AddSubscription<FString>(kTestTopic, MessageCallback);
+}
+
+bool URosCommunicationSubsystem::AddCmdVelSubscriber(URobotMotionComponent* MotionComponent)
+{
+    if (RosNode == nullptr || MotionComponent == nullptr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针注册/cmd_vel失败，RosNode或MotionComponent为空"));
+        return false;
+    }
+
+    const TWeakObjectPtr<URobotMotionComponent> WeakMotionComponent(MotionComponent);
+    const auto MessageCallback = TROSSubscriptionDelegate<FTwist>::CreateLambda(
+        [WeakMotionComponent](const FTwist& Msg)
+        {
+            if (!WeakMotionComponent.IsValid())
+            {
+                return;
+            }
+
+            WeakMotionComponent->SetCmdVel(Msg.LinearVelocity.X, Msg.AngularVelocity.Z);
+        });
+
+    const bool bAdded = RosNode->AddSubscription<FTwist>(kCmdVelTopic, MessageCallback);
+    if (bAdded)
+    {
+        UE_LOG(LogTemp, Display, TEXT("ROS通信探针已注册/cmd_vel订阅，Topic=%s"), *kCmdVelTopic);
+    }
+    return bAdded;
 }

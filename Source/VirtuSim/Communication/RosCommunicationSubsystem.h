@@ -4,6 +4,7 @@
 #include "Subsystems/WorldSubsystem.h"
 
 class UTempoROSNode;
+class URobotMotionComponent;
 
 #include "RosCommunicationSubsystem.generated.h"
 
@@ -35,6 +36,13 @@ public:
      */
     UFUNCTION(BlueprintCallable, Category = "ROS")
     bool PublishTestMessage(const FString& Message);
+
+    /**
+     * 为机器人运动组件注册 /cmd_vel 订阅。
+     * @param MotionComponent 接收速度命令的运动组件。
+     * @return 注册成功返回 true。
+     */
+    bool AddCmdVelSubscriber(URobotMotionComponent* MotionComponent);
 
 private:
     /** 创建并初始化 TempoROS 节点。 */
