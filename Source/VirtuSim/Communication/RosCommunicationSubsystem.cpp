@@ -3,6 +3,7 @@
 #include "TempoROSCommonConverters.h"
 #include "TempoROSNode.h"
 #include "../Robot/RobotMotionComponent.h"
+#include "../Robot/RobotOdomConverters.h"
 #include "rclcpp/utilities.hpp"
 
 // UE 类型与 ROS2 类型之间的转换
@@ -16,6 +17,8 @@ namespace
 {
 const FString kTestTopic = TEXT("/virtusim/test");
 const FString kCmdVelTopic = TEXT("/cmd_vel");
+const FString kOdomTopic = TEXT("/odom");
+
 }
 
 bool URosCommunicationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -38,6 +41,13 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
     if (!AddTestPublisher())
     {
         UE_LOG(LogTemp, Error, TEXT("ROS通信探针创建发布者失败，Topic=%s"), *kTestTopic);
+        RosNode = nullptr;
+        return;
+    }
+
+    if (!AddOdomPublisher())
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针创建发布者失败，Topic=%s"), *kOdomTopic);
         RosNode = nullptr;
         return;
     }
@@ -80,6 +90,24 @@ bool URosCommunicationSubsystem::PublishTestMessage(const FString& Message)
     return true;
 }
 
+bool URosCommunicationSubsystem::PublishOdom(const FRobotOdomState& State)
+{
+    if (!bReady || RosNode == nullptr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针未就绪，无法发布里程计消息"));
+        return false;
+    }
+
+    const bool bPublished = RosNode->Publish<FRobotOdomState>(kOdomTopic, State);
+    if (!bPublished)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS里程计发布失败，Topic=%s"), *kOdomTopic);
+        return false;
+    }
+
+    return true;
+}
+
 bool URosCommunicationSubsystem::CreateRosNode()
 {
     if (!rclcpp::ok())
@@ -102,8 +130,18 @@ bool URosCommunicationSubsystem::AddTestPublisher()
     return RosNode->AddPublisher<FString>(kTestTopic, FROSQOSProfile(), false);
 }
 
-bool URosCommunicationSubsystem::AddTestSubscriber()
+bool URosCommunicationSubsystem::AddOdomPublisher()
 {
+    if (RosNode == nullptr)
+    {
+        return false;
+    }
+
+    return RosNode->AddPublisher<FRobotOdomState>(kOdomTopic, FROSQOSProfile(), false);
+}
+
+bool URosCommunicationSubsystem::AddTestSubscriber()
+{   
     if (RosNode == nullptr)
     {
         return false;

@@ -44,6 +44,11 @@ void URobotMotionComponent::SetCmdVel(double InLinearX, double InAngularZ)
 	// ROS 回调只保存最新速度，不直接移动 Actor，避免通讯层和运动层耦合。
 	currentLinearX = InLinearX;
 	currentAngularZ = InAngularZ;
+
+	if (const UWorld* World = GetWorld(); World != nullptr)
+	{
+		lastCmdTimeSeconds = World->GetTimeSeconds();
+	}
 }
 
 void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -57,18 +62,48 @@ void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		return;
 	}
 
-	// 没有速度命令时直接返回，避免每帧做无意义的位移和旋转计算。
-	if (FMath::IsNearlyZero(currentLinearX) && FMath::IsNearlyZero(currentAngularZ))
+	const UWorld* World = GetWorld();
+	if (World != nullptr && cmdVelTimeoutSeconds > 0.0f)
 	{
-		return;
+		const double NowSeconds = World->GetTimeSeconds();
+		if (lastCmdTimeSeconds > 0.0 && (NowSeconds - lastCmdTimeSeconds) > cmdVelTimeoutSeconds)
+		{
+			currentLinearX = 0.0;
+			currentAngularZ = 0.0;
+		}
 	}
 
-	// 线速度 * 帧时间 = 本帧位移距离。
-	// GetActorForwardVector 表示 Actor 当前正前方，所以机器人会沿自身朝向前进。
-	const FVector DeltaLocation = OwnerActor->GetActorForwardVector() * static_cast<float>(currentLinearX * DeltaTime);
-	OwnerActor->AddActorWorldOffset(DeltaLocation, false);
+	if (!FMath::IsNearlyZero(currentLinearX) || !FMath::IsNearlyZero(currentAngularZ))
+	{
+		// 线速度 * 帧时间 = 本帧位移距离。
+		// GetActorForwardVector 表示 Actor 当前正前方，所以机器人会沿自身朝向前进。
+		const FVector DeltaLocation = OwnerActor->GetActorForwardVector() * static_cast<float>(currentLinearX * DeltaTime);
+		OwnerActor->AddActorWorldOffset(DeltaLocation, false);
 
-	// FRotator(Pitch, Yaw, Roll)，地面机器人平面运动只需要修改 Yaw。
-	const FRotator DeltaRotation(0.0f, static_cast<float>(currentAngularZ * DeltaTime), 0.0f);
-	OwnerActor->AddActorWorldRotation(DeltaRotation);
+		// FRotator(Pitch, Yaw, Roll)，地面机器人平面运动只需要修改 Yaw。
+		const FRotator DeltaRotation(0.0f, static_cast<float>(currentAngularZ * DeltaTime), 0.0f);
+		OwnerActor->AddActorWorldRotation(DeltaRotation);
+	}
+
+	// 移动完成后再更新内部 odom 状态，确保保存的是最新位姿。
+	currentOdom.LinearX = currentLinearX;
+	currentOdom.AngularZ = currentAngularZ;
+	currentOdom.Position = OwnerActor->GetActorLocation();
+	currentOdom.Rotation = OwnerActor->GetActorRotation();
+	currentOdom.TimestampSeconds = World != nullptr ? World->GetTimeSeconds() : 0.0;
+
+	odomPublishElapsedSeconds += DeltaTime;
+
+	if (odomPublishElapsedSeconds >= odomPublishIntervalSeconds)
+	{
+		if (World != nullptr)
+		{
+			if (URosCommunicationSubsystem* RosSubsystem = World->GetSubsystem<URosCommunicationSubsystem>())
+			{
+				RosSubsystem->PublishOdom(currentOdom);
+			}
+		}
+
+		odomPublishElapsedSeconds = 0.0f;
+	}
 }

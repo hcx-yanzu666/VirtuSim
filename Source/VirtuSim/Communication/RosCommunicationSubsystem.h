@@ -5,6 +5,7 @@
 
 class UTempoROSNode;
 class URobotMotionComponent;
+struct FRobotOdomState;
 
 #include "RosCommunicationSubsystem.generated.h"
 
@@ -38,6 +39,13 @@ public:
     bool PublishTestMessage(const FString& Message);
 
     /**
+     * 发布机器人里程计状态到 /odom。
+     * @param State UE 内部保存的里程计状态，包含位置、朝向、线速度、角速度和时间戳。
+     * @return 发布成功返回 true。
+     */
+    bool PublishOdom(const FRobotOdomState& State);
+
+    /**
      * 为机器人运动组件注册 /cmd_vel 订阅。
      * @param MotionComponent 接收速度命令的运动组件。
      * @return 注册成功返回 true。
@@ -54,6 +62,8 @@ private:
     /** 注册字符串测试话题的订阅者。 */
     bool AddTestSubscriber();
 
+    /** 注册 /odom 发布者。 */
+    bool AddOdomPublisher();
 private:
     UPROPERTY()
     UTempoROSNode* RosNode = nullptr;

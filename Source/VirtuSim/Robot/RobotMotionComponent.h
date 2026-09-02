@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "RobotOdomState.h"
 #include "RobotMotionComponent.generated.h"
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -34,4 +35,16 @@ private:
 
 	/** 当前角速度，单位度每秒。 */
 	double currentAngularZ = 0.0;
+
+	/** 最近一次收到 /cmd_vel 的世界时间。 */
+	double lastCmdTimeSeconds = 0.0;
+
+	/** 命令超时后自动刹停的时间阈值。 */
+	UPROPERTY(EditAnywhere, Category = "Robot|Motion")
+	float cmdVelTimeoutSeconds = 0.5f;
+
+	/** 当前内部里程计状态。 */
+	FRobotOdomState currentOdom;
+	float odomPublishIntervalSeconds = 1.0f /30.0f; //30帧发一次 /odom
+	float odomPublishElapsedSeconds = 0.0f; //距离上一次发布过了多久
 };
