@@ -45,6 +45,10 @@ public:
      */
     bool PublishOdom(const FRobotOdomState& State);
 
+    bool PublishOdomTransform(const FTransform &WorldTransform,double Time);
+
+    bool PublishLaserStaticTransform();
+
     /**
      * 为机器人运动组件注册 /cmd_vel 订阅。
      * @param MotionComponent 接收速度命令的运动组件。

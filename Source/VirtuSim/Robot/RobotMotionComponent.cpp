@@ -101,6 +101,8 @@ void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 			if (URosCommunicationSubsystem* RosSubsystem = World->GetSubsystem<URosCommunicationSubsystem>())
 			{
 				RosSubsystem->PublishOdom(currentOdom);
+				//取TF动态发布
+				RosSubsystem->PublishOdomTransform(OwnerActor->GetActorTransform(), World->GetTimeSeconds());
 			}
 		}
 

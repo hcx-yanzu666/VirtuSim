@@ -58,6 +58,12 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
         RosNode = nullptr;
         return;
     }
+    if (!PublishLaserStaticTransform())
+    {
+        RosNode = nullptr;
+        return;
+    }
+    
 
     bReady = true;
     UE_LOG(LogTemp, Display, TEXT("ROS通信探针初始化成功，Node=virtusim_probe，Topic=%s"), *kTestTopic);
@@ -106,6 +112,29 @@ bool URosCommunicationSubsystem::PublishOdom(const FRobotOdomState& State)
     }
 
     return true;
+}
+
+bool URosCommunicationSubsystem::PublishOdomTransform(const FTransform& WorldTransform, double Time)
+{
+    if (RosNode == nullptr)
+    {
+        return false;
+    }
+    return (RosNode->PublishDynamicTransform(WorldTransform, "base_link", "odom", Time));
+}
+
+bool URosCommunicationSubsystem::PublishLaserStaticTransform()
+{
+    if (RosNode == nullptr)
+    {
+        return false;
+    }
+    const FTransform BaseToLaser(
+        FRotator::ZeroRotator,
+        FVector(20.0f, 0.0f, 30.0f),
+        FVector::OneVector
+    );
+    return (RosNode->PublishStaticTransform(BaseToLaser, "laser_link", "base_link"));
 }
 
 bool URosCommunicationSubsystem::CreateRosNode()
