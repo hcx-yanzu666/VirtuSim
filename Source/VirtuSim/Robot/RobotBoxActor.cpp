@@ -4,6 +4,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Components/StaticMeshComponent.h"
 #include "RobotMotionComponent.h"
+#include "LidarComponent.h"
 
 ARobotBoxActor::ARobotBoxActor()
 {
@@ -20,6 +21,7 @@ ARobotBoxActor::ARobotBoxActor()
 	}
 
 	robotMotionComponent = CreateDefaultSubobject<URobotMotionComponent>(TEXT("RobotMotionComponent"));
+	lidarComponent = CreateDefaultSubobject<ULidarComponent>(TEXT("LidarComponent"));
 }
 
 void ARobotBoxActor::BeginPlay()

@@ -51,7 +51,7 @@ void URobotMotionComponent::SetCmdVel(double InLinearX, double InAngularZ)
 	}
 }
 
-void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)	
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -109,3 +109,4 @@ void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		odomPublishElapsedSeconds = 0.0f;
 	}
 }
+	

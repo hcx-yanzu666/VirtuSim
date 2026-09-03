@@ -7,6 +7,7 @@
 
 class UStaticMeshComponent;
 class URobotMotionComponent;
+class ULidarComponent;
 
 #include "RobotBoxActor.generated.h"
 
@@ -33,5 +34,8 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
 	URobotMotionComponent* robotMotionComponent = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
+    ULidarComponent* lidarComponent = nullptr;
 
 };
