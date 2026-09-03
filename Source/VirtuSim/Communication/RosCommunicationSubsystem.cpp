@@ -4,6 +4,7 @@
 #include "TempoROSNode.h"
 #include "../Robot/RobotMotionComponent.h"
 #include "../Robot/RobotOdomConverters.h"
+#include "../Robot/LidarScanConverters.h"
 #include "rclcpp/utilities.hpp"
 
 // UE 类型与 ROS2 类型之间的转换
@@ -18,6 +19,7 @@ namespace
 const FString kTestTopic = TEXT("/virtusim/test");
 const FString kCmdVelTopic = TEXT("/cmd_vel");
 const FString kOdomTopic = TEXT("/odom");
+const FString kScanTopic = TEXT("/scan");
 
 }
 
@@ -48,6 +50,12 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
     if (!AddOdomPublisher())
     {
         UE_LOG(LogTemp, Error, TEXT("ROS通信探针创建发布者失败，Topic=%s"), *kOdomTopic);
+        RosNode = nullptr;
+        return;
+    }
+    if (!AddScanPublisher())
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针创建发布者失败，Topic=%s"), *kScanTopic);
         RosNode = nullptr;
         return;
     }
@@ -114,6 +122,24 @@ bool URosCommunicationSubsystem::PublishOdom(const FRobotOdomState& State)
     return true;
 }
 
+bool URosCommunicationSubsystem::PublishScan(const FLidarScanState& State)
+{
+    if (!bReady || RosNode == nullptr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针未就绪，无法发布激光扫描消息"));
+        return false;
+    }
+
+    const bool bPublished = RosNode->Publish<FLidarScanState>(kScanTopic, State);
+    if (!bPublished)
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS激光扫描发布失败，Topic=%s"), *kScanTopic);
+        return false;
+    }
+
+    return true;
+}
+
 bool URosCommunicationSubsystem::PublishOdomTransform(const FTransform& WorldTransform, double Time)
 {
     if (RosNode == nullptr)
@@ -167,6 +193,15 @@ bool URosCommunicationSubsystem::AddOdomPublisher()
     }
 
     return RosNode->AddPublisher<FRobotOdomState>(kOdomTopic, FROSQOSProfile(), false);
+}
+
+bool URosCommunicationSubsystem::AddScanPublisher()
+{
+    if (RosNode == nullptr)
+    {
+        return false;
+    }
+    return RosNode->AddPublisher<FLidarScanState>(kScanTopic, FROSQOSProfile(), false);
 }
 
 bool URosCommunicationSubsystem::AddTestSubscriber()

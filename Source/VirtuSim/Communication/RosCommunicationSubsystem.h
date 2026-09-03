@@ -6,6 +6,7 @@
 class UTempoROSNode;
 class URobotMotionComponent;
 struct FRobotOdomState;
+struct FLidarScanState;
 
 #include "RosCommunicationSubsystem.generated.h"
 
@@ -45,6 +46,13 @@ public:
      */
     bool PublishOdom(const FRobotOdomState& State);
 
+    /**
+     * 发布一帧 LiDAR 扫描结果到 /scan。
+     * @param State UE 内部保存的扫描结果，包含角度、量程、距离数组和时间戳。
+     * @return 发布成功返回 true。
+     */
+    bool PublishScan(const FLidarScanState& State);
+
     bool PublishOdomTransform(const FTransform &WorldTransform,double Time);
 
     bool PublishLaserStaticTransform();
@@ -68,6 +76,9 @@ private:
 
     /** 注册 /odom 发布者。 */
     bool AddOdomPublisher();
+
+    /** 注册 /scan 发布者。 */
+    bool AddScanPublisher();
 private:
     UPROPERTY()
     UTempoROSNode* RosNode = nullptr;

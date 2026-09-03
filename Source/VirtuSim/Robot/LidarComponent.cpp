@@ -3,6 +3,7 @@
 
 #include "LidarComponent.h"
 #include "DrawDebugHelpers.h"
+#include "../Communication/RosCommunicationSubsystem.h"
 
 // Sets default values for this component's properties
 ULidarComponent::ULidarComponent()
@@ -123,5 +124,9 @@ void ULidarComponent::performScan()
 			1.0f
 		);
 	}
-}
 
+	if (URosCommunicationSubsystem* RosSubsystem = World->GetSubsystem<URosCommunicationSubsystem>())
+	{
+		RosSubsystem->PublishScan(ScanState);
+	}
+}
