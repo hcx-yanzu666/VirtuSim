@@ -53,8 +53,26 @@ public:
      */
     bool PublishScan(const FLidarScanState& State);
 
-    bool PublishOdomTransform(const FTransform &WorldTransform,double Time);
+    /**
+     * 发布 odom 到 base_link 的动态 TF。
+     * @param WorldTransform 机器人 Actor 当前在 UE 世界中的位姿，当前阶段约定为 base_link 在 odom 下的位姿。
+     * @param Time 当前 UE 世界时间，供 TF 按时间查询。
+     * @return 发布成功返回 true。
+     */
+    bool PublishOdomTransform(const FTransform& WorldTransform, double Time);
 
+    /**
+     * 发布 map 到 odom 的静态 TF。
+     * 第一版先让 map 和 odom 完全重合，保证 Nav2/RViz 需要的 TF 树完整。
+     * @return 发布成功返回 true。
+     */
+    bool PublishMapStaticTransform();
+
+    /**
+     * 发布 base_link 到 laser_link 的静态 TF。
+     * 该变换表示 LiDAR 相对机器人底盘的固定安装位置。
+     * @return 发布成功返回 true。
+     */
     bool PublishLaserStaticTransform();
 
     /**

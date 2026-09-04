@@ -66,8 +66,16 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
         RosNode = nullptr;
         return;
     }
+    if (!PublishMapStaticTransform())
+    {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针发布静态TF失败，From=map，To=odom"));
+        RosNode = nullptr;
+        return;
+    }
+
     if (!PublishLaserStaticTransform())
     {
+        UE_LOG(LogTemp, Error, TEXT("ROS通信探针发布静态TF失败，From=base_link，To=laser_link"));
         RosNode = nullptr;
         return;
     }
@@ -147,6 +155,17 @@ bool URosCommunicationSubsystem::PublishOdomTransform(const FTransform& WorldTra
         return false;
     }
     return (RosNode->PublishDynamicTransform(WorldTransform, "base_link", "odom", Time));
+}
+
+bool URosCommunicationSubsystem::PublishMapStaticTransform()
+{
+    if (RosNode == nullptr)
+    {
+        return false;
+    }
+
+    // 第一版没有 AMCL/SLAM 修正，先让 map 与 odom 重合，保证 TF 树完整可用。
+    return RosNode->PublishStaticTransform(FTransform::Identity, "odom", "map");
 }
 
 bool URosCommunicationSubsystem::PublishLaserStaticTransform()
