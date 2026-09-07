@@ -15,6 +15,9 @@ public class VirtuSim : ModuleRules
 			"Engine",
 			"InputCore",
 			"EnhancedInput",
+			"UMG",
+			"Slate",
+			"SlateCore",
 			"TempoROS",
 			"rclcpp"
 		});
