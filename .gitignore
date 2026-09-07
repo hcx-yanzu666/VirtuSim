@@ -39,3 +39,10 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+
+# Unreal local backups and generated solution
+Backup/
+Backup1/
+UpgradeLog*.htm
+UpgradeLog*.txt
+*.sln
