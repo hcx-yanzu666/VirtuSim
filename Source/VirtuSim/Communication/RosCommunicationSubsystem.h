@@ -76,6 +76,16 @@ public:
     bool PublishLaserStaticTransform();
 
     /**
+     * 发布 UE 中选定的导航目标到 ROS。
+    * @param GoalLocation UE 世界坐标，单位厘米。
+    * @param GoalYawDegrees UE 中的目标朝向，单位度。
+    * @return 发布成功返回 true。
+    */
+    UFUNCTION(BlueprintCallable, Category = "ROS")
+    bool PublishNavigationGoal(const FVector& GoalLocation, float GoalYawDegrees = 0.0f);
+    
+
+    /**
      * 为机器人运动组件注册 /cmd_vel 订阅。
      * @param MotionComponent 接收速度命令的运动组件。
      * @return 注册成功返回 true。
@@ -97,6 +107,9 @@ private:
 
     /** 注册 /scan 发布者。 */
     bool AddScanPublisher();
+
+    /** 注册 /virtusim/goal_pose 发布者。 */
+    bool AddNavigationGoalPublisher();
 private:
     UPROPERTY()
     UTempoROSNode* RosNode = nullptr;

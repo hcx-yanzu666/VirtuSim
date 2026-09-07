@@ -6,6 +6,7 @@
 #include "../Robot/RobotOdomConverters.h"
 #include "../Robot/LidarScanConverters.h"
 #include "rclcpp/utilities.hpp"
+#include "../Navigation/NavigationGoalConverters.h"
 
 // UE 类型与 ROS2 类型之间的转换
 // FString ↔ std_msgs::msg::String
@@ -20,7 +21,7 @@ const FString kTestTopic = TEXT("/virtusim/test");
 const FString kCmdVelTopic = TEXT("/cmd_vel");
 const FString kOdomTopic = TEXT("/odom");
 const FString kScanTopic = TEXT("/scan");
-
+const FString kNavigationGoalTopic = TEXT("/virtusim/goal_pose");
 }
 
 bool URosCommunicationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -76,6 +77,16 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
     if (!PublishLaserStaticTransform())
     {
         UE_LOG(LogTemp, Error, TEXT("ROS通信探针发布静态TF失败，From=base_link，To=laser_link"));
+        RosNode = nullptr;
+        return;
+    }
+    if (!AddNavigationGoalPublisher())
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS通信探针创建发布者失败，Topic=%s"),
+            *kNavigationGoalTopic);
         RosNode = nullptr;
         return;
     }
@@ -182,6 +193,50 @@ bool URosCommunicationSubsystem::PublishLaserStaticTransform()
     return (RosNode->PublishStaticTransform(BaseToLaser, "laser_link", "base_link"));
 }
 
+bool URosCommunicationSubsystem::PublishNavigationGoal(const FVector& GoalLocation, float GoalYawDegrees)
+{
+    if (!bReady || RosNode == nullptr)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS通信探针未就绪，无法发布导航目标，Topic=%s"),
+            *kNavigationGoalTopic);
+        return false;
+    }
+
+    FNavigationGoalState GoalState;
+    GoalState.Position = GoalLocation;
+    GoalState.YawDegrees = GoalYawDegrees;
+    GoalState.TimestampSeconds = GetWorld()->GetTimeSeconds();
+
+    const bool bPublished = RosNode->Publish<FNavigationGoalState>(
+        kNavigationGoalTopic,
+        GoalState);
+
+    if (!bPublished)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS导航目标发布失败，Topic=%s，Location=%s，Yaw=%.2f"),
+            *kNavigationGoalTopic,
+            *GoalLocation.ToString(),
+            GoalYawDegrees);
+        return false;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("ROS导航目标发布成功，Topic=%s，Location=%s，Yaw=%.2f"),
+        *kNavigationGoalTopic,
+        *GoalLocation.ToString(),
+        GoalYawDegrees);
+
+    return true;
+}
+
 bool URosCommunicationSubsystem::CreateRosNode()
 {
     if (!rclcpp::ok())
@@ -221,6 +276,15 @@ bool URosCommunicationSubsystem::AddScanPublisher()
         return false;
     }
     return RosNode->AddPublisher<FLidarScanState>(kScanTopic, FROSQOSProfile(), false);
+}
+
+bool URosCommunicationSubsystem::AddNavigationGoalPublisher()
+{
+    if (RosNode == nullptr)
+    {
+        return false;
+    }
+    return RosNode->AddPublisher<FNavigationGoalState>(kNavigationGoalTopic, FROSQOSProfile(), false);
 }
 
 bool URosCommunicationSubsystem::AddTestSubscriber()
