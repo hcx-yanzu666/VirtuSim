@@ -151,6 +151,8 @@ bool URosCommunicationSubsystem::PublishOdom(const FRobotOdomState& State)
         return false;
     }
 
+    LatestOdom = State;
+    bHasLatestOdom = true;
     return true;
 }
 
@@ -414,5 +416,16 @@ bool URosCommunicationSubsystem::TryGetLastNavigationGoal(FVector& OutGoalLocati
     }
 
     OutGoalLocation = LastNavigationGoal;
+    return true;
+}
+
+bool URosCommunicationSubsystem::TryGetLatestOdom(FRobotOdomState& OutOdomState) const
+{
+    if (!bHasLatestOdom)
+    {
+        return false;
+    }
+
+    OutOdomState = LatestOdom;
     return true;
 }

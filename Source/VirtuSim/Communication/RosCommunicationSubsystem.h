@@ -1,11 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "../Robot/RobotOdomState.h"
 #include "Subsystems/WorldSubsystem.h"
 
 class UTempoROSNode;
 class URobotMotionComponent;
-struct FRobotOdomState;
 struct FLidarScanState;
 
 #include "RosCommunicationSubsystem.generated.h"
@@ -106,6 +106,13 @@ public:
      */
     bool TryGetLastNavigationGoal(FVector& OutGoalLocation) const;
 
+    /**
+     * 获取最近一次成功发布的机器人里程计状态。
+     * @param OutOdomState 输出 Actor 实际位姿和当前速度指令。
+     * @return 已成功发布过里程计状态时返回 true。
+     */
+    bool TryGetLatestOdom(FRobotOdomState& OutOdomState) const;
+
 private:
     /** 创建并初始化 TempoROS 节点。 */
     bool CreateRosNode();
@@ -141,4 +148,10 @@ private:
 
     /** 是否已经成功发布过至少一个导航目标。 */
     bool bHasNavigationGoal = false;
+
+    /** 最近一次成功发布的机器人里程计状态。 */
+    FRobotOdomState LatestOdom;
+
+    /** 是否已经成功发布过至少一帧里程计状态。 */
+    bool bHasLatestOdom = false;
 };

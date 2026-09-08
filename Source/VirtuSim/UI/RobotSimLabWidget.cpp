@@ -230,8 +230,17 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	GoalXText = AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标 X"), TEXT("-- m"));
 	GoalYText = AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标 Y"), TEXT("-- m"));
 	AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标朝向"), TEXT("0.0 deg"));
-	LeftContent->AddChildToVerticalBox(CreateCard(WidgetTree, GoalCardContent));
-	AddCanvasWidget(RootCanvas, LeftPanel, FVector2D(16.0f, 80.0f), FVector2D(270.0f, 520.0f));
+	LeftContent->AddChildToVerticalBox(CreateCard(WidgetTree, GoalCardContent))->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 10.0f));
+
+	UVerticalBox* RobotCardContent = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddPanelTitle(WidgetTree, RobotCardContent, TEXT("机器人状态"));
+	RobotXText = AddStatusRow(WidgetTree, RobotCardContent, TEXT("当前位置 X"), TEXT("-- m"));
+	RobotYText = AddStatusRow(WidgetTree, RobotCardContent, TEXT("当前位置 Y"), TEXT("-- m"));
+	RobotYawText = AddStatusRow(WidgetTree, RobotCardContent, TEXT("当前朝向"), TEXT("-- deg"));
+	CommandLinearText = AddStatusRow(WidgetTree, RobotCardContent, TEXT("指令线速度"), TEXT("-- m/s"));
+	CommandAngularText = AddStatusRow(WidgetTree, RobotCardContent, TEXT("指令角速度"), TEXT("-- rad/s"));
+	LeftContent->AddChildToVerticalBox(CreateCard(WidgetTree, RobotCardContent));
+	AddCanvasWidget(RootCanvas, LeftPanel, FVector2D(16.0f, 80.0f), FVector2D(270.0f, 700.0f));
 
 	UBorder* RightPanel = CreatePanel(WidgetTree);
 	UVerticalBox* RightContent = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -279,7 +288,9 @@ void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	if (NavigationStatusText == nullptr || GoalXText == nullptr || GoalYText == nullptr)
+	if (NavigationStatusText == nullptr || GoalXText == nullptr || GoalYText == nullptr ||
+		RobotXText == nullptr || RobotYText == nullptr || RobotYawText == nullptr ||
+		CommandLinearText == nullptr || CommandAngularText == nullptr)
 	{
 		return;
 	}
@@ -306,25 +317,41 @@ void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 	}
 
 	FVector CurrentGoal;
-	if (!RosSubsystem->TryGetLastNavigationGoal(CurrentGoal))
+	if (RosSubsystem->TryGetLastNavigationGoal(CurrentGoal) &&
+		(!bHasDisplayedNavigationGoal || !CurrentGoal.Equals(DisplayedNavigationGoal)))
+	{
+		// 与 NavigationGoalConverters 使用相同规则：UE 厘米转 ROS 米，并翻转 Y 轴。
+		const double GoalXMetres = CurrentGoal.X / kCentimetersPerMeter;
+		const double GoalYMetres = -CurrentGoal.Y / kCentimetersPerMeter;
+
+		GoalXText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), GoalXMetres)));
+		GoalYText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), GoalYMetres)));
+
+		DisplayedNavigationGoal = CurrentGoal;
+		bHasDisplayedNavigationGoal = true;
+	}
+
+	FRobotOdomState CurrentOdom;
+	if (!RosSubsystem->TryGetLatestOdom(CurrentOdom) ||
+		FMath::IsNearlyEqual(CurrentOdom.TimestampSeconds, DisplayedOdomTimestampSeconds))
 	{
 		return;
 	}
 
-	if (bHasDisplayedNavigationGoal && CurrentGoal.Equals(DisplayedNavigationGoal))
-	{
-		return;
-	}
+	// 位姿和速度均按 ROS 的右手坐标系及标准单位显示。
+	const double RobotXMetres = CurrentOdom.Position.X / kCentimetersPerMeter;
+	const double RobotYMetres = -CurrentOdom.Position.Y / kCentimetersPerMeter;
+	const double RobotYawDegrees = FMath::UnwindDegrees(-CurrentOdom.Rotation.Yaw);
+	const double CommandLinearMetresPerSecond = CurrentOdom.LinearX / kCentimetersPerMeter;
+	const double CommandAngularRadiansPerSecond = FMath::DegreesToRadians(-CurrentOdom.AngularZ);
 
-	// 与 NavigationGoalConverters 使用相同规则：UE 厘米转 ROS 米，并翻转 Y 轴。
-	const double GoalXMetres = CurrentGoal.X / kCentimetersPerMeter;
-	const double GoalYMetres = -CurrentGoal.Y / kCentimetersPerMeter;
+	RobotXText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), RobotXMetres)));
+	RobotYText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), RobotYMetres)));
+	RobotYawText->SetText(FText::FromString(FString::Printf(TEXT("%.1f deg"), RobotYawDegrees)));
+	CommandLinearText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m/s"), CommandLinearMetresPerSecond)));
+	CommandAngularText->SetText(FText::FromString(FString::Printf(TEXT("%.2f rad/s"), CommandAngularRadiansPerSecond)));
 
-	GoalXText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), GoalXMetres)));
-	GoalYText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), GoalYMetres)));
-
-	DisplayedNavigationGoal = CurrentGoal;
-	bHasDisplayedNavigationGoal = true;
+	DisplayedOdomTimestampSeconds = CurrentOdom.TimestampSeconds;
 }
 
 void URobotSimLabWidget::HandleSetGoalClicked()

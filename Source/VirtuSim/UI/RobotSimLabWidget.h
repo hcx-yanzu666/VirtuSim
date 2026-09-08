@@ -51,6 +51,26 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> GoalYText = nullptr;
 
+	/** 机器人当前 ROS X 坐标对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> RobotXText = nullptr;
+
+	/** 机器人当前 ROS Y 坐标对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> RobotYText = nullptr;
+
+	/** 机器人当前 ROS 偏航角对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> RobotYawText = nullptr;
+
+	/** 最近一次线速度指令对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> CommandLinearText = nullptr;
+
+	/** 最近一次角速度指令对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> CommandAngularText = nullptr;
+
 	/** 缓存已经显示的状态，避免每帧重复设置相同文本。 */
 	FString DisplayedNavigationStatus;
 
@@ -59,4 +79,7 @@ private:
 
 	/** UI 是否已经显示过一个有效导航目标。 */
 	bool bHasDisplayedNavigationGoal = false;
+
+	/** 已显示里程计状态的时间戳，用于按 /odom 更新频率刷新机器人状态。 */
+	double DisplayedOdomTimestampSeconds = -1.0;
 };
