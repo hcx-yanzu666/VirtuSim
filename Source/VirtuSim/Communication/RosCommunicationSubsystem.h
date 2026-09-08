@@ -99,6 +99,13 @@ public:
     UFUNCTION(BlueprintPure, Category = "ROS")
     FString GetNavigationStatus() const;
 
+    /**
+     * 获取最近一次成功发布的导航目标。
+     * @param OutGoalLocation 输出 UE 世界坐标，单位厘米。
+     * @return 已成功发布过导航目标时返回 true。
+     */
+    bool TryGetLastNavigationGoal(FVector& OutGoalLocation) const;
+
 private:
     /** 创建并初始化 TempoROS 节点。 */
     bool CreateRosNode();
@@ -128,4 +135,10 @@ private:
 
     /** UE 侧保存的最新导航状态，初始时未开始导航。 */
     FString NavigationStatus = TEXT("Idle");
+
+    /** 最近一次成功发布的导航目标，使用 UE 世界坐标和厘米单位。 */
+    FVector LastNavigationGoal = FVector::ZeroVector;
+
+    /** 是否已经成功发布过至少一个导航目标。 */
+    bool bHasNavigationGoal = false;
 };

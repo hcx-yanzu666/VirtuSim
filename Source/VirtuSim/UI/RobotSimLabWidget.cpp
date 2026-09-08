@@ -26,6 +26,7 @@ const FLinearColor kLabelColor(0.56f, 0.67f, 0.74f, 1.0f);
 const FLinearColor kValueColor(0.85f, 0.92f, 0.96f, 1.0f);
 const FLinearColor kSuccessColor(0.16f, 0.88f, 0.45f, 1.0f);
 const FLinearColor kWarningColor(0.95f, 0.72f, 0.18f, 1.0f);
+constexpr double kCentimetersPerMeter = 100.0;
 
 FText GetNavigationStatusText(const FString& Status)
 {
@@ -226,8 +227,8 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	UVerticalBox* GoalCardContent = WidgetTree->ConstructWidget<UVerticalBox>();
 	AddPanelTitle(WidgetTree, GoalCardContent, TEXT("导航目标"));
 	AddStatusRow(WidgetTree, GoalCardContent, TEXT("坐标系"), TEXT("map"));
-	AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标 X"), TEXT("-- m"));
-	AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标 Y"), TEXT("-- m"));
+	GoalXText = AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标 X"), TEXT("-- m"));
+	GoalYText = AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标 Y"), TEXT("-- m"));
 	AddStatusRow(WidgetTree, GoalCardContent, TEXT("目标朝向"), TEXT("0.0 deg"));
 	LeftContent->AddChildToVerticalBox(CreateCard(WidgetTree, GoalCardContent));
 	AddCanvasWidget(RootCanvas, LeftPanel, FVector2D(16.0f, 80.0f), FVector2D(270.0f, 520.0f));
@@ -278,7 +279,7 @@ void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	if (NavigationStatusText == nullptr)
+	if (NavigationStatusText == nullptr || GoalXText == nullptr || GoalYText == nullptr)
 	{
 		return;
 	}
@@ -297,14 +298,33 @@ void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 	}
 
 	const FString CurrentStatus = RosSubsystem->GetNavigationStatus();
-	if (CurrentStatus == DisplayedNavigationStatus)
+	if (CurrentStatus != DisplayedNavigationStatus)
+	{
+		DisplayedNavigationStatus = CurrentStatus;
+		NavigationStatusText->SetText(GetNavigationStatusText(CurrentStatus));
+		NavigationStatusText->SetColorAndOpacity(GetNavigationStatusColor(CurrentStatus));
+	}
+
+	FVector CurrentGoal;
+	if (!RosSubsystem->TryGetLastNavigationGoal(CurrentGoal))
 	{
 		return;
 	}
 
-	DisplayedNavigationStatus = CurrentStatus;
-	NavigationStatusText->SetText(GetNavigationStatusText(CurrentStatus));
-	NavigationStatusText->SetColorAndOpacity(GetNavigationStatusColor(CurrentStatus));
+	if (bHasDisplayedNavigationGoal && CurrentGoal.Equals(DisplayedNavigationGoal))
+	{
+		return;
+	}
+
+	// 与 NavigationGoalConverters 使用相同规则：UE 厘米转 ROS 米，并翻转 Y 轴。
+	const double GoalXMetres = CurrentGoal.X / kCentimetersPerMeter;
+	const double GoalYMetres = -CurrentGoal.Y / kCentimetersPerMeter;
+
+	GoalXText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), GoalXMetres)));
+	GoalYText->SetText(FText::FromString(FString::Printf(TEXT("%.2f m"), GoalYMetres)));
+
+	DisplayedNavigationGoal = CurrentGoal;
+	bHasDisplayedNavigationGoal = true;
 }
 
 void URobotSimLabWidget::HandleSetGoalClicked()

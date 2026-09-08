@@ -43,6 +43,20 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> NavigationStatusText = nullptr;
 
+	/** 导航目标 ROS X 坐标对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> GoalXText = nullptr;
+
+	/** 导航目标 ROS Y 坐标对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> GoalYText = nullptr;
+
 	/** 缓存已经显示的状态，避免每帧重复设置相同文本。 */
 	FString DisplayedNavigationStatus;
+
+	/** 缓存已经显示的 UE 导航目标，避免每帧重复格式化坐标文本。 */
+	FVector DisplayedNavigationGoal = FVector::ZeroVector;
+
+	/** UI 是否已经显示过一个有效导航目标。 */
+	bool bHasDisplayedNavigationGoal = false;
 };

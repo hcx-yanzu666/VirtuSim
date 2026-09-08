@@ -247,6 +247,8 @@ bool URosCommunicationSubsystem::PublishNavigationGoal(const FVector& GoalLocati
         *GoalLocation.ToString(),
         GoalYawDegrees);
 
+    LastNavigationGoal = GoalLocation;
+    bHasNavigationGoal = true;
     return true;
 }
 
@@ -402,4 +404,15 @@ bool URosCommunicationSubsystem::AddNavigationStatusSubscriber()
 FString URosCommunicationSubsystem::GetNavigationStatus() const
 {
     return NavigationStatus;
+}
+
+bool URosCommunicationSubsystem::TryGetLastNavigationGoal(FVector& OutGoalLocation) const
+{
+    if (!bHasNavigationGoal)
+    {
+        return false;
+    }
+
+    OutGoalLocation = LastNavigationGoal;
+    return true;
 }
