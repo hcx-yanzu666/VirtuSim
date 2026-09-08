@@ -92,6 +92,13 @@ public:
      */
     bool AddCmdVelSubscriber(URobotMotionComponent* MotionComponent);
 
+    /**
+     * 获取最近一次从 Nav2 桥接程序收到的导航状态。
+     * @return 状态文本，例如 Idle、Navigating、Succeeded、Failed。
+     */
+    UFUNCTION(BlueprintPure, Category = "ROS")
+    FString GetNavigationStatus() const;
+
 private:
     /** 创建并初始化 TempoROS 节点。 */
     bool CreateRosNode();
@@ -110,9 +117,15 @@ private:
 
     /** 注册 /virtusim/goal_pose 发布者。 */
     bool AddNavigationGoalPublisher();
+
+    /** 注册导航状态订阅者。 */
+    bool AddNavigationStatusSubscriber();
 private:
     UPROPERTY()
     UTempoROSNode* RosNode = nullptr;
 
     bool bReady = false;
+
+    /** UE 侧保存的最新导航状态，初始时未开始导航。 */
+    FString NavigationStatus = TEXT("Idle");
 };

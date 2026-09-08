@@ -2,6 +2,7 @@
 
 #include "TempoROSCommonConverters.h"
 #include "TempoROSNode.h"
+#include "Async/Async.h"
 #include "../Robot/RobotMotionComponent.h"
 #include "../Robot/RobotOdomConverters.h"
 #include "../Robot/LidarScanConverters.h"
@@ -22,6 +23,7 @@ const FString kCmdVelTopic = TEXT("/cmd_vel");
 const FString kOdomTopic = TEXT("/odom");
 const FString kScanTopic = TEXT("/scan");
 const FString kNavigationGoalTopic = TEXT("/virtusim/goal_pose");
+const FString kNavigationStatusTopic = TEXT("/virtusim/navigation_status");
 }
 
 bool URosCommunicationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -87,6 +89,17 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
             Error,
             TEXT("ROS通信探针创建发布者失败，Topic=%s"),
             *kNavigationGoalTopic);
+        RosNode = nullptr;
+        return;
+    }
+
+    if (!AddNavigationStatusSubscriber())
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS通信探针创建导航状态订阅者失败，Topic=%s"),
+            *kNavigationStatusTopic);
         RosNode = nullptr;
         return;
     }
@@ -329,4 +342,64 @@ bool URosCommunicationSubsystem::AddCmdVelSubscriber(URobotMotionComponent* Moti
         UE_LOG(LogTemp, Display, TEXT("ROS通信探针已注册/cmd_vel订阅，Topic=%s"), *kCmdVelTopic);
     }
     return bAdded;
+}
+
+bool URosCommunicationSubsystem::AddNavigationStatusSubscriber()
+{
+    if (RosNode == nullptr)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS通信探针注册导航状态订阅失败，RosNode为空，Topic=%s"),
+            *kNavigationStatusTopic);
+        return false;
+    }
+
+    const TWeakObjectPtr<URosCommunicationSubsystem> WeakSubsystem(this);
+    const auto StatusCallback = TROSSubscriptionDelegate<FString>::CreateLambda(
+        [WeakSubsystem](const FString& Status)
+        {
+            AsyncTask(ENamedThreads::GameThread, [WeakSubsystem, Status]()
+            {
+                if (!WeakSubsystem.IsValid())
+                {
+                    return;
+                }
+
+                WeakSubsystem->NavigationStatus = Status;
+                UE_LOG(
+                    LogTemp,
+                    Display,
+                    TEXT("收到导航状态，Topic=%s，Status=%s"),
+                    *kNavigationStatusTopic,
+                    *Status);
+            });
+        });
+
+    const bool bAdded = RosNode->AddSubscription<FString>(
+        kNavigationStatusTopic,
+        StatusCallback);
+
+    if (!bAdded)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS导航状态订阅注册失败，Topic=%s"),
+            *kNavigationStatusTopic);
+        return false;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("ROS通信探针已注册导航状态订阅，Topic=%s"),
+        *kNavigationStatusTopic);
+    return true;
+}
+
+FString URosCommunicationSubsystem::GetNavigationStatus() const
+{
+    return NavigationStatus;
 }
