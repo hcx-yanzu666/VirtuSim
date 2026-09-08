@@ -5,6 +5,7 @@
 #include "Widgets/SWidget.h"
 
 #include "RobotSimLabWidget.generated.h"
+class UTextBlock;
 
 /**
  * 仿真运行时控制台。
@@ -22,10 +23,26 @@ protected:
 	 */
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 
+	/**
+	 * 每帧更新运行时界面。
+	 * @param MyGeometry 当前控件的布局信息。
+	 * @param InDeltaTime 距离上一帧经过的秒数。
+	 */
+	virtual void NativeTick(
+		const FGeometry& MyGeometry,
+		float InDeltaTime) override;
+
 private:
 	/** 响应设置导航点操作，并转交给当前 PlayerController 的选点流程。 */
 	UFUNCTION()
 	void HandleSetGoalClicked();
 
 	bool bHasBuiltLayout = false;
+
+	/** 导航任务状态对应的文本控件。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> NavigationStatusText = nullptr;
+
+	/** 缓存已经显示的状态，避免每帧重复设置相同文本。 */
+	FString DisplayedNavigationStatus;
 };

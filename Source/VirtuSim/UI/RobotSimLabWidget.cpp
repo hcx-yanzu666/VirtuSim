@@ -11,6 +11,7 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "../Communication/RosCommunicationSubsystem.h"
 #include "GameFramework/PlayerController.h"
 
 namespace
@@ -24,6 +25,65 @@ const FLinearColor kTitleColor(0.90f, 0.95f, 0.98f, 1.0f);
 const FLinearColor kLabelColor(0.56f, 0.67f, 0.74f, 1.0f);
 const FLinearColor kValueColor(0.85f, 0.92f, 0.96f, 1.0f);
 const FLinearColor kSuccessColor(0.16f, 0.88f, 0.45f, 1.0f);
+const FLinearColor kWarningColor(0.95f, 0.72f, 0.18f, 1.0f);
+
+FText GetNavigationStatusText(const FString& Status)
+{
+	if (Status == TEXT("Idle"))
+	{
+		return FText::FromString(TEXT("空闲"));
+	}
+	if (Status == TEXT("GoalReceived"))
+	{
+		return FText::FromString(TEXT("已收到目标"));
+	}
+	if (Status == TEXT("GoalAccepted"))
+	{
+		return FText::FromString(TEXT("目标已接受"));
+	}
+	if (Status == TEXT("Navigating"))
+	{
+		return FText::FromString(TEXT("导航中"));
+	}
+	if (Status == TEXT("Succeeded"))
+	{
+		return FText::FromString(TEXT("导航成功"));
+	}
+	if (Status == TEXT("Failed"))
+	{
+		return FText::FromString(TEXT("导航失败"));
+	}
+	if (Status == TEXT("Canceled"))
+	{
+		return FText::FromString(TEXT("导航已取消"));
+	}
+
+	return FText::FromString(Status);
+}
+
+FLinearColor GetNavigationStatusColor(const FString& Status)
+{
+	if (Status == TEXT("Succeeded"))
+	{
+		return kSuccessColor;
+	}
+	if (Status == TEXT("Failed"))
+	{
+		return kDangerColor;
+	}
+	if (Status == TEXT("Canceled"))
+	{
+		return kWarningColor;
+	}
+	if (Status == TEXT("GoalReceived") ||
+		Status == TEXT("GoalAccepted") ||
+		Status == TEXT("Navigating"))
+	{
+		return kPrimaryColor;
+	}
+
+	return kValueColor;
+}
 
 UTextBlock* CreateText(UWidgetTree* WidgetTree, const FString& Text, int32 FontSize, const FLinearColor& Color)
 {
@@ -59,17 +119,38 @@ void AddPanelTitle(UWidgetTree* WidgetTree, UVerticalBox* Container, const FStri
 	Container->AddChildToVerticalBox(TitleText)->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 10.0f));
 }
 
-void AddStatusRow(UWidgetTree* WidgetTree, UVerticalBox* Container, const FString& Label, const FString& Value, const FLinearColor& ValueColor = kValueColor)
+UTextBlock* AddStatusRow(
+    UWidgetTree* WidgetTree,
+    UVerticalBox* Container,
+    const FString& Label,
+    const FString& Value,
+    const FLinearColor& ValueColor = kValueColor)
 {
-	UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
-	UTextBlock* LabelText = CreateText(WidgetTree, Label, 13, kLabelColor);
-	UTextBlock* ValueText = CreateText(WidgetTree, Value, 13, ValueColor);
-	ValueText->SetJustification(ETextJustify::Right);
+    UHorizontalBox* Row = WidgetTree->ConstructWidget<UHorizontalBox>();
+    UTextBlock* LabelText = CreateText(
+        WidgetTree,
+        Label,
+        13,
+        kLabelColor);
 
-	UHorizontalBoxSlot* LabelSlot = Row->AddChildToHorizontalBox(LabelText);
-	LabelSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	Row->AddChildToHorizontalBox(ValueText);
-	Container->AddChildToVerticalBox(Row)->SetPadding(FMargin(0.0f, 2.0f));
+    UTextBlock* ValueText = CreateText(
+        WidgetTree,
+        Value,
+        13,
+        ValueColor);
+
+    ValueText->SetJustification(ETextJustify::Right);
+
+    UHorizontalBoxSlot* LabelSlot =
+        Row->AddChildToHorizontalBox(LabelText);
+
+    LabelSlot->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
+    Row->AddChildToHorizontalBox(ValueText);
+
+    Container->AddChildToVerticalBox(Row)
+        ->SetPadding(FMargin(0.0f, 2.0f));
+
+    return ValueText;
 }
 
 UButton* AddActionButton(UWidgetTree* WidgetTree, UVerticalBox* Container, const FString& Label, const FLinearColor& Color)
@@ -132,7 +213,11 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	UVerticalBox* TaskCardContent = WidgetTree->ConstructWidget<UVerticalBox>();
 	AddPanelTitle(WidgetTree, TaskCardContent, TEXT("任务控制"));
 	AddStatusRow(WidgetTree, TaskCardContent, TEXT("导航任务"), TEXT("运行中"), kSuccessColor);
-	AddStatusRow(WidgetTree, TaskCardContent, TEXT("任务状态"), TEXT("等待目标"));
+	NavigationStatusText = AddStatusRow(
+		WidgetTree,
+		TaskCardContent,
+		TEXT("任务状态"),
+		TEXT("空闲"));
 	AddStatusRow(WidgetTree, TaskCardContent, TEXT("当前目标"), TEXT("未设置"));
 	UButton* SetGoalButton = AddActionButton(WidgetTree, TaskCardContent, TEXT("设置导航点"), kPrimaryColor);
 	SetGoalButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleSetGoalClicked);
@@ -187,6 +272,39 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	AddCanvasWidgetWithOffsets(RootCanvas, FooterPanel, FMargin(16.0f, 0.0f, 16.0f, 38.0f), FAnchors(0.0f, 1.0f, 1.0f, 1.0f), FVector2D(0.0f, 1.0f));
 
 	return Super::RebuildWidget();
+}
+
+void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (NavigationStatusText == nullptr)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (World == nullptr)
+	{
+		return;
+	}
+
+	const URosCommunicationSubsystem* RosSubsystem =
+		World->GetSubsystem<URosCommunicationSubsystem>();
+	if (RosSubsystem == nullptr)
+	{
+		return;
+	}
+
+	const FString CurrentStatus = RosSubsystem->GetNavigationStatus();
+	if (CurrentStatus == DisplayedNavigationStatus)
+	{
+		return;
+	}
+
+	DisplayedNavigationStatus = CurrentStatus;
+	NavigationStatusText->SetText(GetNavigationStatusText(CurrentStatus));
+	NavigationStatusText->SetColorAndOpacity(GetNavigationStatusColor(CurrentStatus));
 }
 
 void URobotSimLabWidget::HandleSetGoalClicked()
