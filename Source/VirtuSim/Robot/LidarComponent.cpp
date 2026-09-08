@@ -73,6 +73,16 @@ void ULidarComponent::performScan()
 
 	FCollisionQueryParams Params;
     Params.AddIgnoredActor(OwnerActor);
+    // UE 配置使用“度”，LaserScan 使用“弧度”。
+    ScanState.AngleMinRadians =
+    FMath::DegreesToRadians(angleMinDegrees);
+    ScanState.AngleMaxRadians =
+    FMath::DegreesToRadians(angleMaxDegrees);
+    ScanState.AngleIncrementRadians =
+    FMath::DegreesToRadians(angleIncrementDegrees);
+    // 配置使用“米”，UE 射线检测使用“厘米”。
+    ScanState.RangeMinCentimeters = rangeMinMeters * 100.0f;
+    ScanState.RangeMaxCentimeters = rangeMaxMeters * 100.0f;
 	const int32 RayCount = FMath::FloorToInt(
     (ScanState.AngleMaxRadians - ScanState.AngleMinRadians) / ScanState.AngleIncrementRadians) + 1;
 	for (int32 i = 0; i < RayCount; ++i)
@@ -102,7 +112,10 @@ void ULidarComponent::performScan()
 		float distance;
 		if (bHit)
 		{
-			distance = Result.Distance;
+			distance = FMath::Clamp(
+            Result.Distance,
+            ScanState.RangeMinCentimeters,
+            ScanState.RangeMaxCentimeters);
 		}
 		else
 		{
@@ -113,6 +126,8 @@ void ULidarComponent::performScan()
 		const FVector DrawEnd = bHit ? Result.ImpactPoint : End;
 		const FColor DrawColor = bHit ? FColor::Green : FColor::Red;
 
+		if(bDrawDebugRays)
+		{
 		DrawDebugLine(
 			World,
 			Start,
@@ -123,6 +138,7 @@ void ULidarComponent::performScan()
 			0,
 			1.0f
 		);
+		}
 	}
 
 	if (URosCommunicationSubsystem* RosSubsystem = World->GetSubsystem<URosCommunicationSubsystem>())
