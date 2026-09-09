@@ -52,9 +52,9 @@ private:
     UPROPERTY(EditAnywhere, Category = "Robot|LiDAR", meta = (ClampMin = "0.0", ClampMax = "180.0"))
     float angleMaxDegrees = 180.0f;
 
-    /** 是否绘制调试射线。只影响 UE 显示，不影响 ROS 数据。 */
+    /** 是否绘制沿扫描方向排列的绿色采样点。只影响 UE 显示，不影响 ROS 数据。 */
     UPROPERTY(EditAnywhere, Category = "Robot|LiDAR")
-    bool bDrawDebugRays = true;
+    bool bDrawScanPoints = true;
 
 	/** 距离上一次扫描已经累计的时间，单位为秒。 */
 	float scanElapsedSeconds = 0.0f;

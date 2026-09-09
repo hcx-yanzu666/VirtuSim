@@ -17,7 +17,9 @@ ARobotBoxActor::ARobotBoxActor()
 	if (CubeMeshAsset.Succeeded())
 	{
 		cubeMesh->SetStaticMesh(CubeMeshAsset.Object);
-		cubeMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+		// 引擎基础 Cube 原始尺寸为 100cm，缩放后作为 50cm 的临时机器人底盘。
+		// 该尺寸的方形半对角线约为 0.36m，应与后续 Nav2 robot_radius 保持一致。
+		cubeMesh->SetRelativeScale3D(FVector(0.5f, 0.5f, 0.5f));
 	}
 
 	robotMotionComponent = CreateDefaultSubobject<URobotMotionComponent>(TEXT("RobotMotionComponent"));
@@ -33,4 +35,3 @@ void ARobotBoxActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 }
-

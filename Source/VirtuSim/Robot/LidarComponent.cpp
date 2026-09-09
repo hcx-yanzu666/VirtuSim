@@ -123,21 +123,47 @@ void ULidarComponent::performScan()
 		}
 		ScanState.RangesCentimeters.Add(distance);
 
-		const FVector DrawEnd = bHit ? Result.ImpactPoint : End;
-		const FColor DrawColor = bHit ? FColor::Green : FColor::Red;
-
-		if(bDrawDebugRays)
+		if (bDrawScanPoints)
 		{
-		DrawDebugLine(
-			World,
-			Start,
-			DrawEnd,
-			DrawColor,
-			false,
-			0.1f,
-			0,
-			1.0f
-		);
+			constexpr float ScanPointSpacingCentimeters = 20.0f;
+			constexpr float ScanPointSizeCentimeters = 5.0f;
+			const float PointLifetimeSeconds = (1.0f / scanFrequencyHz) * 1.1f;
+			const int32 PointCount = FMath::Max(
+				FMath::CeilToInt(distance / ScanPointSpacingCentimeters),
+				1);
+
+			// 每条射线只画点，不画线；点从雷达起点排列到本次测距终点。
+			for (int32 PointIndex = 1; PointIndex <= PointCount; ++PointIndex)
+			{
+				const float PointDistance = FMath::Min(
+					PointIndex * ScanPointSpacingCentimeters,
+					distance);
+				const FVector PointLocation = Start + WorldDirection * PointDistance;
+
+				// 根据点到 LiDAR 的相对距离着色：近红、中蓝、远青。
+				const float RangeSpan = FMath::Max(
+					ScanState.RangeMaxCentimeters - ScanState.RangeMinCentimeters,
+					UE_SMALL_NUMBER);
+				const float DistanceRatio = FMath::Clamp(
+					(PointDistance - ScanState.RangeMinCentimeters) /
+					RangeSpan,
+					0.0f,
+					1.0f);
+				const FLinearColor NearColor = FLinearColor::Red;
+				const FLinearColor MidColor(0.05f, 0.25f, 1.0f, 1.0f);
+				const FLinearColor FarColor(0.0f, 1.0f, 1.0f, 1.0f);
+				const FLinearColor PointLinearColor = DistanceRatio < 0.5f
+					? FMath::Lerp(NearColor, MidColor, DistanceRatio * 2.0f)
+					: FMath::Lerp(MidColor, FarColor, (DistanceRatio - 0.5f) * 2.0f);
+
+				DrawDebugPoint(
+					World,
+					PointLocation,
+					ScanPointSizeCentimeters,
+					PointLinearColor.ToFColor(true),
+					false,
+					PointLifetimeSeconds);
+			}
 		}
 	}
 
