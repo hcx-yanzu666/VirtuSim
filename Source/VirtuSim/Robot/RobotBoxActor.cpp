@@ -3,12 +3,14 @@
 
 #include "UObject/ConstructorHelpers.h"
 #include "Components/StaticMeshComponent.h"
+#include "../Navigation/NavigationPathVisualizerComponent.h"
 #include "RobotMotionComponent.h"
 #include "LidarComponent.h"
 
 ARobotBoxActor::ARobotBoxActor()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	// 运动、LiDAR 和路径显示由各组件的 Tick 驱动。
+	PrimaryActorTick.bCanEverTick = false;
 	cubeMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CubeMesh"));
 	RootComponent = cubeMesh;
 
@@ -24,14 +26,11 @@ ARobotBoxActor::ARobotBoxActor()
 
 	robotMotionComponent = CreateDefaultSubobject<URobotMotionComponent>(TEXT("RobotMotionComponent"));
 	lidarComponent = CreateDefaultSubobject<ULidarComponent>(TEXT("LidarComponent"));
+	navigationPathVisualizerComponent =
+		CreateDefaultSubobject<UNavigationPathVisualizerComponent>(TEXT("NavigationPathVisualizerComponent"));
 }
 
 void ARobotBoxActor::BeginPlay()
 {
 	Super::BeginPlay();
-}
-
-void ARobotBoxActor::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
 }

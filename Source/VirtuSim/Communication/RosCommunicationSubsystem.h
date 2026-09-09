@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "../Robot/RobotOdomState.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "../Navigation/NavigationPathState.h"
 
 class UTempoROSNode;
 class URobotMotionComponent;
@@ -113,6 +114,8 @@ public:
      */
     bool TryGetLatestOdom(FRobotOdomState& OutOdomState) const;
 
+    bool TryGetLatestNavigationPath(FNavigationPathState& PathState) const;
+
 private:
     /** 创建并初始化 TempoROS 节点。 */
     bool CreateRosNode();
@@ -134,6 +137,9 @@ private:
 
     /** 注册导航状态订阅者。 */
     bool AddNavigationStatusSubscriber();
+
+    // 注册path订阅
+    bool AddNavigationPathSubscriber();
 private:
     UPROPERTY()
     UTempoROSNode* RosNode = nullptr;
@@ -154,4 +160,8 @@ private:
 
     /** 是否已经成功发布过至少一帧里程计状态。 */
     bool bHasLatestOdom = false;
+
+    FNavigationPathState LatestNavigationPath;
+    bool bHasLatestNavigationPath = false;
+
 };

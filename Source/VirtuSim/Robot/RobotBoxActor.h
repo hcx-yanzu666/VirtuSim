@@ -8,6 +8,7 @@
 class UStaticMeshComponent;
 class URobotMotionComponent;
 class ULidarComponent;
+class UNavigationPathVisualizerComponent;
 
 #include "RobotBoxActor.generated.h"
 
@@ -24,10 +25,6 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
 	UStaticMeshComponent* cubeMesh = nullptr;
@@ -37,5 +34,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
     ULidarComponent* lidarComponent = nullptr;
+
+	/** 读取通信子系统中的 Nav2 路径并绘制调试线。 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
+	UNavigationPathVisualizerComponent* navigationPathVisualizerComponent = nullptr;
 
 };

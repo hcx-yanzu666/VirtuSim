@@ -8,6 +8,7 @@
 #include "../Robot/LidarScanConverters.h"
 #include "rclcpp/utilities.hpp"
 #include "../Navigation/NavigationGoalConverters.h"
+#include "../Navigation/NavigationPathConverters.h"
 
 // UE 类型与 ROS2 类型之间的转换
 // FString ↔ std_msgs::msg::String
@@ -24,6 +25,7 @@ const FString kOdomTopic = TEXT("/odom");
 const FString kScanTopic = TEXT("/scan");
 const FString kNavigationGoalTopic = TEXT("/virtusim/goal_pose");
 const FString kNavigationStatusTopic = TEXT("/virtusim/navigation_status");
+const FString kNavigationPathTopic = TEXT("/plan");
 }
 
 bool URosCommunicationSubsystem::ShouldCreateSubsystem(UObject* Outer) const
@@ -98,12 +100,22 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
         UE_LOG(
             LogTemp,
             Error,
-            TEXT("ROS通信探针创建导航状态订阅者失败，Topic=%s"),
+            TEXT("ROS通信探针创建导航路径订阅者失败，Topic=%s"),
             *kNavigationStatusTopic);
         RosNode = nullptr;
         return;
     }
-    
+
+    if (!AddNavigationPathSubscriber())
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS通信探针创建导航状态订阅者失败，Topic=%s"),
+            *kNavigationPathTopic);
+        RosNode = nullptr;
+        return;
+    }
 
     bReady = true;
     UE_LOG(LogTemp, Display, TEXT("ROS通信探针初始化成功，Node=virtusim_probe，Topic=%s"), *kTestTopic);
@@ -403,6 +415,56 @@ bool URosCommunicationSubsystem::AddNavigationStatusSubscriber()
     return true;
 }
 
+bool URosCommunicationSubsystem::AddNavigationPathSubscriber()
+{
+    if (RosNode == nullptr)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS通信探针注册path订阅失败，RosNode为空，Topic=%s"),
+            *kNavigationPathTopic);
+        return false;
+    }
+
+    const TWeakObjectPtr<URosCommunicationSubsystem> WeakSubsystem(this);
+    const auto PathCallback = TROSSubscriptionDelegate<FNavigationPathState>::CreateLambda(
+        [WeakSubsystem](const FNavigationPathState& PathState)
+        {
+            AsyncTask(ENamedThreads::GameThread, [WeakSubsystem, PathState]()
+            {
+                if (!WeakSubsystem.IsValid())
+                {
+                    return;
+                }
+
+                WeakSubsystem->LatestNavigationPath = PathState;
+                WeakSubsystem->bHasLatestNavigationPath = true;
+            });
+        });
+
+    const bool bAdded = RosNode->AddSubscription<FNavigationPathState>(
+        kNavigationPathTopic,
+        PathCallback);
+
+    if (!bAdded)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("ROS导航路径订阅注册失败，Topic=%s"),
+            *kNavigationPathTopic);
+        return false;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("ROS通信探针已注册导航路径订阅，Topic=%s"),
+        *kNavigationPathTopic);
+    return true;
+}
+
 FString URosCommunicationSubsystem::GetNavigationStatus() const
 {
     return NavigationStatus;
@@ -427,5 +489,16 @@ bool URosCommunicationSubsystem::TryGetLatestOdom(FRobotOdomState& OutOdomState)
     }
 
     OutOdomState = LatestOdom;
+    return true;
+}
+
+bool URosCommunicationSubsystem::TryGetLatestNavigationPath(FNavigationPathState& PathState) const
+{
+    if (!bHasLatestNavigationPath)
+    {
+        return false;
+    }
+
+    PathState = LatestNavigationPath;
     return true;
 }
