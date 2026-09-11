@@ -1,3 +1,6 @@
 [submodule "Plugins/TempoROS"]
 	path = Plugins/TempoROS
 	url = https://github.com/hcx-yanzu666/TempoROS.git
+[submodule "Plugins/UMGAutoBuilder"]
+	path = Plugins/UMGAutoBuilder
+	url = https://github.com/hcx-yanzu666/UMGAutoBuilder.git
