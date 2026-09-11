@@ -11,6 +11,7 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Blueprint/UserWidget.h"
 #include "../Communication/RosCommunicationSubsystem.h"
 #include "GameFramework/PlayerController.h"
 
@@ -167,6 +168,18 @@ UButton* AddActionButton(UWidgetTree* WidgetTree, UVerticalBox* Container, const
 	return Button;
 }
 
+UButton* CreateHeaderButton(UWidgetTree* WidgetTree, const FString& Label, const FLinearColor& Color)
+{
+	UButton* Button = WidgetTree->ConstructWidget<UButton>();
+	Button->SetBackgroundColor(Color);
+	Button->SetClickMethod(EButtonClickMethod::MouseDown);
+
+	UTextBlock* LabelText = CreateText(WidgetTree, Label, 14, kTitleColor);
+	LabelText->SetJustification(ETextJustify::Center);
+	Button->AddChild(LabelText);
+	return Button;
+}
+
 void AddCanvasWidget(UCanvasPanel* RootCanvas, UWidget* Widget, const FVector2D& Position, const FVector2D& Size, const FAnchors& Anchors = FAnchors(0.0f, 0.0f), const FVector2D& Alignment = FVector2D::ZeroVector)
 {
 	UCanvasPanelSlot* Slot = RootCanvas->AddChildToCanvas(Widget);
@@ -204,9 +217,16 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	HeaderRow->AddChildToHorizontalBox(CreateText(WidgetTree, TEXT("  v0.1.0"), 12, kLabelColor));
 	USpacer* HeaderSpacer = WidgetTree->ConstructWidget<USpacer>();
 	HeaderRow->AddChildToHorizontalBox(HeaderSpacer)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
-	HeaderRow->AddChildToHorizontalBox(CreateText(WidgetTree, TEXT("仿真监控    传感器调试    场景管理    数据分析    系统设置"), 15, kLabelColor));
+	UButton* NavigationPageButton = CreateHeaderButton(WidgetTree, TEXT("导航监控"), kPrimaryColor);
+	NavigationPageButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleShowNavigationClicked);
+	HeaderRow->AddChildToHorizontalBox(NavigationPageButton)->SetPadding(FMargin(0.0f, 0.0f, 8.0f, 0.0f));
+
+	UButton* SensorDebugButton = CreateHeaderButton(WidgetTree, TEXT("传感器调试"), kCardColor);
+	SensorDebugButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleShowSensorDebugClicked);
+	HeaderRow->AddChildToHorizontalBox(SensorDebugButton)->SetPadding(FMargin(0.0f, 0.0f, 16.0f, 0.0f));
 	HeaderRow->AddChildToHorizontalBox(CreateText(WidgetTree, TEXT("    ROS2: Connected"), 14, kSuccessColor));
 	AddCanvasWidgetWithOffsets(RootCanvas, HeaderPanel, FMargin(16.0f, 12.0f, 16.0f, 54.0f), FAnchors(0.0f, 0.0f, 1.0f, 0.0f));
+	CastChecked<UCanvasPanelSlot>(HeaderPanel->Slot)->SetZOrder(10);
 
 	UBorder* LeftPanel = CreatePanel(WidgetTree);
 	UVerticalBox* LeftContent = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -241,6 +261,7 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	CommandAngularText = AddStatusRow(WidgetTree, RobotCardContent, TEXT("指令角速度"), TEXT("-- rad/s"));
 	LeftContent->AddChildToVerticalBox(CreateCard(WidgetTree, RobotCardContent));
 	AddCanvasWidget(RootCanvas, LeftPanel, FVector2D(16.0f, 80.0f), FVector2D(270.0f, 700.0f));
+	NavigationPageWidgets.Add(LeftPanel);
 
 	UBorder* RightPanel = CreatePanel(WidgetTree);
 	UVerticalBox* RightContent = WidgetTree->ConstructWidget<UVerticalBox>();
@@ -265,11 +286,13 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	AddActionButton(WidgetTree, LidarCardContent, TEXT("参数调节（下一阶段）"), kDisabledColor)->SetIsEnabled(false);
 	RightContent->AddChildToVerticalBox(CreateCard(WidgetTree, LidarCardContent));
 	AddCanvasWidget(RootCanvas, RightPanel, FVector2D(-16.0f, 80.0f), FVector2D(280.0f, 560.0f), FAnchors(1.0f, 0.0f), FVector2D(1.0f, 0.0f));
+	NavigationPageWidgets.Add(RightPanel);
 
 	UBorder* ViewTitlePanel = CreatePanel(WidgetTree);
 	ViewTitlePanel->SetPadding(FMargin(10.0f, 6.0f));
 	ViewTitlePanel->SetContent(CreateText(WidgetTree, TEXT("3D 仿真视图  |  Warehouse_01"), 15, kTitleColor));
 	AddCanvasWidget(RootCanvas, ViewTitlePanel, FVector2D(302.0f, 80.0f), FVector2D(400.0f, 36.0f));
+	NavigationPageWidgets.Add(ViewTitlePanel);
 
 	UBorder* FooterPanel = CreatePanel(WidgetTree);
 	FooterPanel->SetPadding(FMargin(14.0f, 7.0f));
@@ -280,8 +303,63 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	FooterRow->AddChildToHorizontalBox(FooterSpacer)->SetSize(FSlateChildSize(ESlateSizeRule::Fill));
 	FooterRow->AddChildToHorizontalBox(CreateText(WidgetTree, TEXT("FPS: --    LiDAR: 10 Hz    ROS2: Online"), 13, kLabelColor));
 	AddCanvasWidgetWithOffsets(RootCanvas, FooterPanel, FMargin(16.0f, 0.0f, 16.0f, 38.0f), FAnchors(0.0f, 1.0f, 1.0f, 1.0f), FVector2D(0.0f, 1.0f));
+	NavigationPageWidgets.Add(FooterPanel);
+
+	// 传感器页面由 UMGAutoBuilder 从 JSON 生成；主 Widget 只负责加载和切换。
+	UClass* SensorDebugWidgetClass = LoadClass<UUserWidget>(
+		nullptr,
+		TEXT("/Game/UI/Widgets/WBP_RobotSensorDebug.WBP_RobotSensorDebug_C"));
+	if (SensorDebugWidgetClass != nullptr)
+	{
+		UUserWidget* SensorWidget = WidgetTree->ConstructWidget<UUserWidget>(
+			SensorDebugWidgetClass,
+			TEXT("SensorDebugPage"));
+		SensorDebugPage = SensorWidget;
+		SensorDebugPage->SetVisibility(ESlateVisibility::Collapsed);
+
+		UCanvasPanelSlot* SensorSlot = RootCanvas->AddChildToCanvas(SensorDebugPage);
+		SensorSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+		SensorSlot->SetOffsets(FMargin(0.0f));
+		SensorSlot->SetZOrder(5);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("无法加载传感器调试页面 WBP_RobotSensorDebug"));
+	}
 
 	return Super::RebuildWidget();
+}
+
+void URobotSimLabWidget::HandleShowNavigationClicked()
+{
+	for (UWidget* Widget : NavigationPageWidgets)
+	{
+		if (Widget != nullptr)
+		{
+			Widget->SetVisibility(ESlateVisibility::Visible);
+		}
+	}
+
+	if (SensorDebugPage != nullptr)
+	{
+		SensorDebugPage->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void URobotSimLabWidget::HandleShowSensorDebugClicked()
+{
+	for (UWidget* Widget : NavigationPageWidgets)
+	{
+		if (Widget != nullptr)
+		{
+			Widget->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+	if (SensorDebugPage != nullptr)
+	{
+		SensorDebugPage->SetVisibility(ESlateVisibility::Visible);
+	}
 }
 
 void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)

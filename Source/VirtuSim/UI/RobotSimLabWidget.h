@@ -6,6 +6,7 @@
 
 #include "RobotSimLabWidget.generated.h"
 class UTextBlock;
+class UWidget;
 
 /**
  * 仿真运行时控制台。
@@ -33,11 +34,27 @@ protected:
 		float InDeltaTime) override;
 
 private:
+	/** 切换回导航监控页面。 */
+	UFUNCTION()
+	void HandleShowNavigationClicked();
+
+	/** 显示由 UMGAutoBuilder 生成的传感器调试页面。 */
+	UFUNCTION()
+	void HandleShowSensorDebugClicked();
+
 	/** 响应设置导航点操作，并转交给当前 PlayerController 的选点流程。 */
 	UFUNCTION()
 	void HandleSetGoalClicked();
 
 	bool bHasBuiltLayout = false;
+
+	/** 导航监控页面中需要一起显示或隐藏的顶层控件。 */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UWidget>> NavigationPageWidgets;
+
+	/** UMGAutoBuilder 生成的传感器调试页面实例。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UWidget> SensorDebugPage = nullptr;
 
 	/** 导航任务状态对应的文本控件。 */
 	UPROPERTY(Transient)

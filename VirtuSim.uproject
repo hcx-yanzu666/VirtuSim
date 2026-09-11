@@ -24,6 +24,13 @@
 		{
 			"Name": "TempoROS",
 			"Enabled": true
+		},
+		{
+			"Name": "UMGAutoBuilder",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
 		}
 	]
 }
