@@ -7,6 +7,10 @@
 #include "RobotSimLabWidget.generated.h"
 class UTextBlock;
 class UWidget;
+class UButton;
+class UCheckBox;
+class USlider;
+class USpinBox;
 
 /**
  * 仿真运行时控制台。
@@ -42,9 +46,43 @@ private:
 	UFUNCTION()
 	void HandleShowSensorDebugClicked();
 
+	/** 恢复传感器页面生成时记录的参数默认值。 */
+	UFUNCTION()
+	void HandleResetSensorParametersClicked();
+
+	/** 读取、校验并把当前 UI 参数应用到场景中的 LiDAR 组件。 */
+	UFUNCTION()
+	void HandleApplySensorParametersClicked();
+
+	UFUNCTION() void HandleSensorSlider0Changed(float Value);
+	UFUNCTION() void HandleSensorSlider1Changed(float Value);
+	UFUNCTION() void HandleSensorSlider2Changed(float Value);
+	UFUNCTION() void HandleSensorSlider3Changed(float Value);
+	UFUNCTION() void HandleSensorSlider4Changed(float Value);
+	UFUNCTION() void HandleSensorSlider5Changed(float Value);
+	UFUNCTION() void HandleSensorSlider6Changed(float Value);
+	UFUNCTION() void HandleSensorSlider7Changed(float Value);
+	UFUNCTION() void HandleSensorSlider8Changed(float Value);
+
+	UFUNCTION() void HandleSensorSpinBox0Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox1Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox2Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox3Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox4Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox5Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox6Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox7Changed(float Value);
+	UFUNCTION() void HandleSensorSpinBox8Changed(float Value);
+
 	/** 响应设置导航点操作，并转交给当前 PlayerController 的选点流程。 */
 	UFUNCTION()
 	void HandleSetGoalClicked();
+
+	/** 查找生成页面中的参数控件，记录默认值并绑定交互事件。 */
+	void InitializeSensorParameterControls(UUserWidget* SensorWidget);
+
+	void SynchronizeSensorParameterFromSlider(int32 ParameterIndex, float Value);
+	void SynchronizeSensorParameterFromSpinBox(int32 ParameterIndex, float Value);
 
 	bool bHasBuiltLayout = false;
 
@@ -55,6 +93,30 @@ private:
 	/** UMGAutoBuilder 生成的传感器调试页面实例。 */
 	UPROPERTY(Transient)
 	TObjectPtr<UWidget> SensorDebugPage = nullptr;
+
+	/** 下标相同的 Slider 与 SpinBox 表示同一个参数。 */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USlider>> SensorParameterSliders;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<USpinBox>> SensorParameterSpinBoxes;
+
+	/** 从 JSON 生成页面时读取的初始值，供“恢复默认”使用。 */
+	TArray<float> SensorParameterDefaultValues;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USpinBox> RandomSeedSpinBox = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UCheckBox> DrawScanPointsCheckBox = nullptr;
+
+	ECheckBoxState DrawScanPointsDefaultState = ECheckBoxState::Unchecked;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> SensorControlStatusText = nullptr;
+
+	float RandomSeedDefaultValue = 0.0f;
+	bool bSynchronizingSensorParameter = false;
 
 	/** 导航任务状态对应的文本控件。 */
 	UPROPERTY(Transient)

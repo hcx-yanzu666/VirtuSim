@@ -32,14 +32,14 @@ void ULidarComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 		return;
 	}
 
-	if (scanFrequencyHz <= 0.0f)
+	if (Parameters.ScanFrequencyHz <= 0.0f)
 	{
 		return;
 	}
 
 	scanElapsedSeconds += DeltaTime;
 
-	const float scanIntervalSeconds = 1.0f / scanFrequencyHz;
+	const float scanIntervalSeconds = 1.0f / Parameters.ScanFrequencyHz;
 	if (scanElapsedSeconds < scanIntervalSeconds)
 	{
 		return;
@@ -49,9 +49,26 @@ void ULidarComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 	scanElapsedSeconds = 0.0f;
 }
 
+bool ULidarComponent::ApplyRuntimeParameters(const FLidarParameters& InParameters, FString& OutError)
+{
+	OutError.Reset();
+
+	// 校验规则住在参数结构体内部，这里只负责“要么整组生效、要么完全不变”。
+	if (!InParameters.Validate(OutError))
+	{
+		return false;
+	}
+
+	Parameters = InParameters;
+
+	// 扫描频率可能变了，重新开始计时，避免沿用旧频率下累计的时间。
+	scanElapsedSeconds = 0.0f;
+	return true;
+}
+
 void ULidarComponent::performScan()
 {
-	UE_LOG(LogTemp, Display, TEXT("LiDAR 执行扫描，频率=%.1fHz"), scanFrequencyHz);
+	UE_LOG(LogTemp, Display, TEXT("LiDAR 执行扫描，频率=%.1fHz"), Parameters.ScanFrequencyHz);
 
 	AActor* OwnerActor = GetOwner();
 	UWorld* World = GetWorld();
@@ -74,15 +91,16 @@ void ULidarComponent::performScan()
 	FCollisionQueryParams Params;
     Params.AddIgnoredActor(OwnerActor);
     // UE 配置使用“度”，LaserScan 使用“弧度”。
+    // 扫描起止角不单独存储，由视场角派生，避免两份数据不一致。
     ScanState.AngleMinRadians =
-    FMath::DegreesToRadians(angleMinDegrees);
+    FMath::DegreesToRadians(Parameters.GetAngleMinDegrees());
     ScanState.AngleMaxRadians =
-    FMath::DegreesToRadians(angleMaxDegrees);
+    FMath::DegreesToRadians(Parameters.GetAngleMaxDegrees());
     ScanState.AngleIncrementRadians =
-    FMath::DegreesToRadians(angleIncrementDegrees);
+    FMath::DegreesToRadians(Parameters.AngleIncrementDegrees);
     // 配置使用“米”，UE 射线检测使用“厘米”。
-    ScanState.RangeMinCentimeters = rangeMinMeters * 100.0f;
-    ScanState.RangeMaxCentimeters = rangeMaxMeters * 100.0f;
+    ScanState.RangeMinCentimeters = Parameters.RangeMinMeters * 100.0f;
+    ScanState.RangeMaxCentimeters = Parameters.RangeMaxMeters * 100.0f;
 	const int32 RayCount = FMath::FloorToInt(
     (ScanState.AngleMaxRadians - ScanState.AngleMinRadians) / ScanState.AngleIncrementRadians) + 1;
 	for (int32 i = 0; i < RayCount; ++i)
@@ -123,11 +141,10 @@ void ULidarComponent::performScan()
 		}
 		ScanState.RangesCentimeters.Add(distance);
 
-		if (bDrawScanPoints)
+		if (Parameters.bDrawScanPoints)
 		{
 			constexpr float ScanPointSpacingCentimeters = 20.0f;
-			constexpr float ScanPointSizeCentimeters = 5.0f;
-			const float PointLifetimeSeconds = (1.0f / scanFrequencyHz) * 1.1f;
+			const float PointLifetimeSeconds = (1.0f / Parameters.ScanFrequencyHz) * 1.1f;
 			const int32 PointCount = FMath::Max(
 				FMath::CeilToInt(distance / ScanPointSpacingCentimeters),
 				1);
@@ -159,7 +176,7 @@ void ULidarComponent::performScan()
 				DrawDebugPoint(
 					World,
 					PointLocation,
-					ScanPointSizeCentimeters,
+					Parameters.ScanPointSizeCentimeters,
 					PointLinearColor.ToFColor(true),
 					false,
 					PointLifetimeSeconds);

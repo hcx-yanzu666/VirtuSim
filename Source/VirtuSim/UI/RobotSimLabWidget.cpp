@@ -5,14 +5,19 @@
 #include "Components/Button.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/CheckBox.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Slider.h"
 #include "Components/Spacer.h"
+#include "Components/SpinBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Blueprint/UserWidget.h"
 #include "../Communication/RosCommunicationSubsystem.h"
+#include "../Robot/LidarComponent.h"
+#include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 
 namespace
@@ -316,6 +321,7 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 			TEXT("SensorDebugPage"));
 		SensorDebugPage = SensorWidget;
 		SensorDebugPage->SetVisibility(ESlateVisibility::Collapsed);
+		InitializeSensorParameterControls(SensorWidget);
 
 		UCanvasPanelSlot* SensorSlot = RootCanvas->AddChildToCanvas(SensorDebugPage);
 		SensorSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
@@ -361,6 +367,266 @@ void URobotSimLabWidget::HandleShowSensorDebugClicked()
 		SensorDebugPage->SetVisibility(ESlateVisibility::Visible);
 	}
 }
+
+void URobotSimLabWidget::InitializeSensorParameterControls(UUserWidget* SensorWidget)
+{
+	static const TCHAR* SliderNames[] = {
+		TEXT("ScanFrequencySlider"),
+		TEXT("MaximumRangeSlider"),
+		TEXT("MinimumRangeSlider"),
+		TEXT("HorizontalFovSlider"),
+		TEXT("AngleResolutionSlider"),
+		TEXT("NoiseStdDevSlider"),
+		TEXT("DropoutProbabilitySlider"),
+		TEXT("FixedDelaySlider"),
+		TEXT("ScanPointSizeSlider")
+	};
+	static const TCHAR* SpinBoxNames[] = {
+		TEXT("ScanFrequencySpinBox"),
+		TEXT("MaximumRangeSpinBox"),
+		TEXT("MinimumRangeSpinBox"),
+		TEXT("HorizontalFovSpinBox"),
+		TEXT("AngleResolutionSpinBox"),
+		TEXT("NoiseStdDevSpinBox"),
+		TEXT("DropoutProbabilitySpinBox"),
+		TEXT("FixedDelaySpinBox"),
+		TEXT("ScanPointSizeSpinBox")
+	};
+
+	SensorParameterSliders.Reset();
+	SensorParameterSpinBoxes.Reset();
+	SensorParameterDefaultValues.Reset();
+
+	for (int32 Index = 0; Index < UE_ARRAY_COUNT(SliderNames); ++Index)
+	{
+		USlider* Slider = Cast<USlider>(SensorWidget->GetWidgetFromName(SliderNames[Index]));
+		USpinBox* SpinBox = Cast<USpinBox>(SensorWidget->GetWidgetFromName(SpinBoxNames[Index]));
+		if (Slider == nullptr || SpinBox == nullptr)
+		{
+			UE_LOG(LogTemp, Error, TEXT("传感器参数控件不完整：%s / %s"), SliderNames[Index], SpinBoxNames[Index]);
+			return;
+		}
+
+		SensorParameterSliders.Add(Slider);
+		SensorParameterSpinBoxes.Add(SpinBox);
+		SensorParameterDefaultValues.Add(SpinBox->GetValue());
+	}
+
+	SensorParameterSliders[0]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider0Changed);
+	SensorParameterSliders[1]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider1Changed);
+	SensorParameterSliders[2]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider2Changed);
+	SensorParameterSliders[3]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider3Changed);
+	SensorParameterSliders[4]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider4Changed);
+	SensorParameterSliders[5]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider5Changed);
+	SensorParameterSliders[6]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider6Changed);
+	SensorParameterSliders[7]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider7Changed);
+	SensorParameterSliders[8]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSlider8Changed);
+
+	SensorParameterSpinBoxes[0]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox0Changed);
+	SensorParameterSpinBoxes[1]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox1Changed);
+	SensorParameterSpinBoxes[2]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox2Changed);
+	SensorParameterSpinBoxes[3]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox3Changed);
+	SensorParameterSpinBoxes[4]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox4Changed);
+	SensorParameterSpinBoxes[5]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox5Changed);
+	SensorParameterSpinBoxes[6]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox6Changed);
+	SensorParameterSpinBoxes[7]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox7Changed);
+	SensorParameterSpinBoxes[8]->OnValueChanged.AddDynamic(this, &URobotSimLabWidget::HandleSensorSpinBox8Changed);
+
+	RandomSeedSpinBox = Cast<USpinBox>(SensorWidget->GetWidgetFromName(TEXT("RandomSeedSpinBox")));
+	if (RandomSeedSpinBox != nullptr)
+	{
+		RandomSeedDefaultValue = RandomSeedSpinBox->GetValue();
+	}
+	DrawScanPointsCheckBox = Cast<UCheckBox>(SensorWidget->GetWidgetFromName(TEXT("DrawScanPointsCheckBox")));
+	if (DrawScanPointsCheckBox != nullptr)
+	{
+		DrawScanPointsDefaultState = DrawScanPointsCheckBox->GetCheckedState();
+	}
+	SensorControlStatusText = Cast<UTextBlock>(SensorWidget->GetWidgetFromName(TEXT("SensorControlStatus")));
+
+	if (UButton* ResetButton = Cast<UButton>(SensorWidget->GetWidgetFromName(TEXT("ResetParametersButton"))))
+	{
+		ResetButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleResetSensorParametersClicked);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("找不到传感器参数重置按钮 ResetParametersButton"));
+	}
+
+	if (UButton* ApplyButton = Cast<UButton>(SensorWidget->GetWidgetFromName(TEXT("ApplyParametersButton"))))
+	{
+		ApplyButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleApplySensorParametersClicked);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("找不到传感器参数应用按钮 ApplyParametersButton"));
+	}
+}
+
+void URobotSimLabWidget::SynchronizeSensorParameterFromSlider(const int32 ParameterIndex, const float Value)
+{
+	if (bSynchronizingSensorParameter || !SensorParameterSpinBoxes.IsValidIndex(ParameterIndex))
+	{
+		return;
+	}
+
+	TGuardValue<bool> SynchronizationGuard(bSynchronizingSensorParameter, true);
+	SensorParameterSpinBoxes[ParameterIndex]->SetValue(Value);
+}
+
+void URobotSimLabWidget::SynchronizeSensorParameterFromSpinBox(const int32 ParameterIndex, const float Value)
+{
+	if (bSynchronizingSensorParameter || !SensorParameterSliders.IsValidIndex(ParameterIndex))
+	{
+		return;
+	}
+
+	TGuardValue<bool> SynchronizationGuard(bSynchronizingSensorParameter, true);
+	SensorParameterSliders[ParameterIndex]->SetValue(Value);
+}
+
+void URobotSimLabWidget::HandleResetSensorParametersClicked()
+{
+	TGuardValue<bool> SynchronizationGuard(bSynchronizingSensorParameter, true);
+	for (int32 Index = 0; Index < SensorParameterDefaultValues.Num(); ++Index)
+	{
+		if (SensorParameterSliders.IsValidIndex(Index) && SensorParameterSpinBoxes.IsValidIndex(Index))
+		{
+			SensorParameterSliders[Index]->SetValue(SensorParameterDefaultValues[Index]);
+			SensorParameterSpinBoxes[Index]->SetValue(SensorParameterDefaultValues[Index]);
+		}
+	}
+
+	if (RandomSeedSpinBox != nullptr)
+	{
+		RandomSeedSpinBox->SetValue(RandomSeedDefaultValue);
+	}
+	if (DrawScanPointsCheckBox != nullptr)
+	{
+		DrawScanPointsCheckBox->SetCheckedState(DrawScanPointsDefaultState);
+	}
+	if (SensorControlStatusText != nullptr)
+	{
+		SensorControlStatusText->SetText(FText::FromString(TEXT("已恢复默认值，点击应用后生效")));
+		SensorControlStatusText->SetColorAndOpacity(kLabelColor);
+	}
+}
+
+void URobotSimLabWidget::HandleApplySensorParametersClicked()
+{
+	constexpr int32 ScanFrequencyIndex = 0;
+	constexpr int32 MaximumRangeIndex = 1;
+	constexpr int32 MinimumRangeIndex = 2;
+	constexpr int32 HorizontalFovIndex = 3;
+	constexpr int32 AngleResolutionIndex = 4;
+	constexpr int32 NoiseStdDevIndex = 5;
+	constexpr int32 DropoutProbabilityIndex = 6;
+	constexpr int32 FixedDelayIndex = 7;
+	constexpr int32 ScanPointSizeIndex = 8;
+
+	if (SensorParameterSpinBoxes.Num() <= ScanPointSizeIndex || DrawScanPointsCheckBox == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("无法应用 LiDAR 参数：传感器 UI 控件未完整初始化"));
+		if (SensorControlStatusText != nullptr)
+		{
+			SensorControlStatusText->SetText(FText::FromString(TEXT("应用失败：UI 控件未初始化")));
+			SensorControlStatusText->SetColorAndOpacity(kDangerColor);
+		}
+		return;
+	}
+
+	ULidarComponent* LidarComponent = nullptr;
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AActor> ActorIt(World); ActorIt; ++ActorIt)
+		{
+			LidarComponent = ActorIt->FindComponentByClass<ULidarComponent>();
+			if (LidarComponent != nullptr)
+			{
+				break;
+			}
+		}
+	}
+
+	if (LidarComponent == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("无法应用 LiDAR 参数：当前世界中没有 ULidarComponent"));
+		if (SensorControlStatusText != nullptr)
+		{
+			SensorControlStatusText->SetText(FText::FromString(TEXT("应用失败：未找到 LiDAR")));
+			SensorControlStatusText->SetColorAndOpacity(kDangerColor);
+		}
+		return;
+	}
+
+	// 先把 UI 上的九个参数装进结构体，再整组交给组件校验。
+	// 校验失败时组件不会改动任何字段，界面上的值也保持原样等待修正。
+	FLidarParameters NewParameters;
+	NewParameters.ScanFrequencyHz = SensorParameterSpinBoxes[ScanFrequencyIndex]->GetValue();
+	NewParameters.AngleIncrementDegrees = SensorParameterSpinBoxes[AngleResolutionIndex]->GetValue();
+	NewParameters.HorizontalFovDegrees = SensorParameterSpinBoxes[HorizontalFovIndex]->GetValue();
+	NewParameters.RangeMinMeters = SensorParameterSpinBoxes[MinimumRangeIndex]->GetValue();
+	NewParameters.RangeMaxMeters = SensorParameterSpinBoxes[MaximumRangeIndex]->GetValue();
+	NewParameters.NoiseStdDevMeters = SensorParameterSpinBoxes[NoiseStdDevIndex]->GetValue();
+	NewParameters.DropoutProbability = SensorParameterSpinBoxes[DropoutProbabilityIndex]->GetValue();
+	NewParameters.FixedDelayMilliseconds = SensorParameterSpinBoxes[FixedDelayIndex]->GetValue();
+	NewParameters.ScanPointSizeCentimeters = SensorParameterSpinBoxes[ScanPointSizeIndex]->GetValue();
+	NewParameters.bDrawScanPoints = DrawScanPointsCheckBox->GetCheckedState() == ECheckBoxState::Checked;
+	if (RandomSeedSpinBox != nullptr)
+	{
+		NewParameters.RandomSeed = FMath::RoundToInt(RandomSeedSpinBox->GetValue());
+	}
+
+	FString ValidationError;
+	const bool bApplied = LidarComponent->ApplyRuntimeParameters(NewParameters, ValidationError);
+
+	if (!bApplied)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("LiDAR 参数校验失败：%s"), *ValidationError);
+		if (SensorControlStatusText != nullptr)
+		{
+			SensorControlStatusText->SetText(FText::FromString(FString::Printf(TEXT("应用失败：%s"), *ValidationError)));
+			SensorControlStatusText->SetColorAndOpacity(kDangerColor);
+		}
+		return;
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("LiDAR 参数已应用：频率=%.2fHz，量程=%.2f-%.2fm，视场=%.1fdeg，分辨率=%.2fdeg，")
+		TEXT("噪声=%.3fm，丢点=%.3f，延迟=%.1fms，种子=%d"),
+		NewParameters.ScanFrequencyHz,
+		NewParameters.RangeMinMeters,
+		NewParameters.RangeMaxMeters,
+		NewParameters.HorizontalFovDegrees,
+		NewParameters.AngleIncrementDegrees,
+		NewParameters.NoiseStdDevMeters,
+		NewParameters.DropoutProbability,
+		NewParameters.FixedDelayMilliseconds,
+		NewParameters.RandomSeed);
+	if (SensorControlStatusText != nullptr)
+	{
+		SensorControlStatusText->SetText(FText::FromString(TEXT("参数已应用")));
+		SensorControlStatusText->SetColorAndOpacity(kSuccessColor);
+	}
+}
+
+#define DEFINE_SENSOR_PARAMETER_HANDLERS(Index) \
+	void URobotSimLabWidget::HandleSensorSlider##Index##Changed(const float Value) { SynchronizeSensorParameterFromSlider(Index, Value); } \
+	void URobotSimLabWidget::HandleSensorSpinBox##Index##Changed(const float Value) { SynchronizeSensorParameterFromSpinBox(Index, Value); }
+
+DEFINE_SENSOR_PARAMETER_HANDLERS(0)
+DEFINE_SENSOR_PARAMETER_HANDLERS(1)
+DEFINE_SENSOR_PARAMETER_HANDLERS(2)
+DEFINE_SENSOR_PARAMETER_HANDLERS(3)
+DEFINE_SENSOR_PARAMETER_HANDLERS(4)
+DEFINE_SENSOR_PARAMETER_HANDLERS(5)
+DEFINE_SENSOR_PARAMETER_HANDLERS(6)
+DEFINE_SENSOR_PARAMETER_HANDLERS(7)
+DEFINE_SENSOR_PARAMETER_HANDLERS(8)
+
+#undef DEFINE_SENSOR_PARAMETER_HANDLERS
 
 void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
