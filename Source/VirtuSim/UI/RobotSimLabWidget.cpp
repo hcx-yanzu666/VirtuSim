@@ -568,7 +568,9 @@ void URobotSimLabWidget::HandleApplySensorParametersClicked()
 	NewParameters.RangeMinMeters = SensorParameterSpinBoxes[MinimumRangeIndex]->GetValue();
 	NewParameters.RangeMaxMeters = SensorParameterSpinBoxes[MaximumRangeIndex]->GetValue();
 	NewParameters.NoiseStdDevMeters = SensorParameterSpinBoxes[NoiseStdDevIndex]->GetValue();
-	NewParameters.DropoutProbability = SensorParameterSpinBoxes[DropoutProbabilityIndex]->GetValue();
+	// UI 使用百分比（0~50%），组件参数使用概率（0~1）。
+	NewParameters.DropoutProbability =
+		SensorParameterSpinBoxes[DropoutProbabilityIndex]->GetValue() / 100.0f;
 	NewParameters.FixedDelayMilliseconds = SensorParameterSpinBoxes[FixedDelayIndex]->GetValue();
 	NewParameters.ScanPointSizeCentimeters = SensorParameterSpinBoxes[ScanPointSizeIndex]->GetValue();
 	NewParameters.bDrawScanPoints = DrawScanPointsCheckBox->GetCheckedState() == ECheckBoxState::Checked;
@@ -595,14 +597,14 @@ void URobotSimLabWidget::HandleApplySensorParametersClicked()
 		LogTemp,
 		Display,
 		TEXT("LiDAR 参数已应用：频率=%.2fHz，量程=%.2f-%.2fm，视场=%.1fdeg，分辨率=%.2fdeg，")
-		TEXT("噪声=%.3fm，丢点=%.3f，延迟=%.1fms，种子=%d"),
+		TEXT("噪声=%.3fm，丢点=%.1f%%，延迟=%.1fms，种子=%d"),
 		NewParameters.ScanFrequencyHz,
 		NewParameters.RangeMinMeters,
 		NewParameters.RangeMaxMeters,
 		NewParameters.HorizontalFovDegrees,
 		NewParameters.AngleIncrementDegrees,
 		NewParameters.NoiseStdDevMeters,
-		NewParameters.DropoutProbability,
+		NewParameters.DropoutProbability * 100.0f,
 		NewParameters.FixedDelayMilliseconds,
 		NewParameters.RandomSeed);
 	if (SensorControlStatusText != nullptr)
