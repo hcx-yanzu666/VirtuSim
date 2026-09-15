@@ -45,8 +45,24 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Robot|LiDAR", meta = (ShowOnlyInnerProperties))
 	FLidarParameters Parameters;
 
+	/** 距离噪声使用的独立随机流。相同种子可以复现相同噪声序列。 */
+    FRandomStream NoiseRandomStream;
+
+	/** 丢点模型使用的独立随机流，避免噪声开关改变丢点序列*/
+	FRandomStream DropoutRandomStream;
+
+    /** 根据当前参数重新初始化所有随机流。 */
+    void ResetRandomStreams();
+
 	/** 距离上一次扫描已经累计的时间，单位为秒。属于运行时状态，不是可配置参数。 */
 	float scanElapsedSeconds = 0.0f;
+
+	/**
+	 * 生成均值为 0、标准差为 1 的标准高斯随机数。
+	 * 只从 NoiseRandomStream 取数，因此同一种子必然复现同一噪声序列。
+	 * 乘以 NoiseStdDevMeters 即可得到任意标准差的噪声。
+	 */
+	float GenerateStandardNormalSample();
 
 	FLidarScanState ScanState;
 };

@@ -17,6 +17,8 @@ ULidarComponent::ULidarComponent()
 void ULidarComponent::BeginPlay()
 {
 	Super::BeginPlay();
+
+	ResetRandomStreams();
 }
 
 
@@ -60,7 +62,7 @@ bool ULidarComponent::ApplyRuntimeParameters(const FLidarParameters& InParameter
 	}
 
 	Parameters = InParameters;
-
+	ResetRandomStreams();
 	// 扫描频率可能变了，重新开始计时，避免沿用旧频率下累计的时间。
 	scanElapsedSeconds = 0.0f;
 	return true;
@@ -127,21 +129,25 @@ void ULidarComponent::performScan()
          //Hit.Distance
 		//Hit.GetActor()
 		//Hit.Normal
-		float distance;
-		if (bHit)
+		float distance = ScanState.RangeMaxCentimeters;
+		const bool bDropped = bHit && Parameters.DropoutProbability > 0.0f && DropoutRandomStream.FRand() < Parameters.DropoutProbability;
+		if (bHit && !bDropped)
 		{
+			float NoiseCentimeters = 0.0f;
+			if (Parameters.bNoiseEnabled && Parameters.NoiseStdDevMeters > 0.0f)
+			{
+				const float NoiseMeters =
+					GenerateStandardNormalSample() * Parameters.NoiseStdDevMeters;
+				NoiseCentimeters = NoiseMeters * 100.0f;
+			}
 			distance = FMath::Clamp(
-            Result.Distance,
+            Result.Distance + NoiseCentimeters,
             ScanState.RangeMinCentimeters,
             ScanState.RangeMaxCentimeters);
 		}
-		else
-		{
-			distance = ScanState.RangeMaxCentimeters;
-		}
 		ScanState.RangesCentimeters.Add(distance);
 
-		if (Parameters.bDrawScanPoints)
+		if (Parameters.bDrawScanPoints && bHit && !bDropped)
 		{
 			constexpr float ScanPointSpacingCentimeters = 20.0f;
 			const float PointLifetimeSeconds = (1.0f / Parameters.ScanFrequencyHz) * 1.1f;
@@ -188,4 +194,28 @@ void ULidarComponent::performScan()
 	{
 		RosSubsystem->PublishScan(ScanState);
 	}
+}
+
+void ULidarComponent::ResetRandomStreams()
+{
+	NoiseRandomStream.Initialize(Parameters.RandomSeed);
+
+	    // 从同一个实验种子派生出另一条独立随机序列。
+    DropoutRandomStream.Initialize(
+        Parameters.RandomSeed ^ 0x5A17C9E3);
+}
+
+float ULidarComponent::GenerateStandardNormalSample()
+{
+	// Box-Muller：两个独立的 [0,1) 均匀随机数 -> 一个标准高斯随机数。
+	// U1 用于控制半径，U2 用于控制角度。
+	// FRand() 的下界是闭的，U1 取到 0 会让 Log(0) 变成 -inf，
+	// 所以先抬到一个极小正数，代价是把概率为 0 的那一个点挪走，不影响分布。
+	const float U1 = FMath::Max(NoiseRandomStream.FRand(), UE_SMALL_NUMBER);
+	const float U2 = NoiseRandomStream.FRand();
+	const float Radius = FMath::Sqrt(-2.0f * FMath::Loge(U1));
+	const float Theta = 2.0f * UE_PI * U2;
+	// 变换同时产出 Radius*Cos 与 Radius*Sin 两个独立样本，
+	// 这里只取一个，另一个直接丢弃：省下缓存状态，代价是每次多取一个随机数。
+	return Radius * FMath::Cos(Theta);
 }

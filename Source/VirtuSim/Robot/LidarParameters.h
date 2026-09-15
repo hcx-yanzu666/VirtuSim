@@ -54,6 +54,10 @@ struct FLidarParameters
 	// 三项互相独立，实验时应逐项单独扫描，避免同时变动导致无法归因。
 	// ---------------------------------------------------------------------
 
+	/** 是否启用距离噪声。关闭时保留噪声标准差，但扫描结果不叠加噪声。 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LiDAR|Error")
+	bool bNoiseEnabled = false;
+
 	/**
 	 * 测距高斯噪声的标准差，单位米。0 表示理想无噪声。
 	 * 噪声沿光束径向叠加，只让障碍物显得更近或更远，不会让它横向平移。

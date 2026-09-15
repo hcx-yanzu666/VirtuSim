@@ -10,7 +10,6 @@
                           "ScanFrequencySlider",
                           "ScanFrequencySpinBox",
                           "NoiseEnabledCheckBox",
-                          "NoiseModelComboBox",
                           "DrawScanPointsCheckBox",
                           "ApplyParametersButton"
                       ],
@@ -1000,9 +999,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  0,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -1167,9 +1166,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  1,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -1334,9 +1333,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  2,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -1501,9 +1500,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  0,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -1668,9 +1667,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  1,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -1834,72 +1833,6 @@
                                                                                                                                                         }
                                                                                                                                            },
                                                                                                                                            {
-                                                                                                                                               "type":  "HorizontalBox",
-                                                                                                                                               "name":  "NoiseModelRow",
-                                                                                                                                               "children":  [
-                                                                                                                                                                {
-                                                                                                                                                                    "type":  "TextBlock",
-                                                                                                                                                                    "name":  "NoiseModelLabel",
-                                                                                                                                                                    "props":  {
-                                                                                                                                                                                  "text":  "噪声类型",
-                                                                                                                                                                                  "fontSize":  13,
-                                                                                                                                                                                  "color":  [
-                                                                                                                                                                                                0.58,
-                                                                                                                                                                                                0.7,
-                                                                                                                                                                                                0.8,
-                                                                                                                                                                                                1
-                                                                                                                                                                                            ]
-                                                                                                                                                                              },
-                                                                                                                                                                    "slot":  {
-                                                                                                                                                                                 "padding":  [
-                                                                                                                                                                                                 0,
-                                                                                                                                                                                                 0,
-                                                                                                                                                                                                 12,
-                                                                                                                                                                                                 0
-                                                                                                                                                                                             ],
-                                                                                                                                                                                 "hAlign":  "Fill",
-                                                                                                                                                                                 "vAlign":  "Center",
-                                                                                                                                                                                 "sizeRule":  "Fill",
-                                                                                                                                                                                 "fill":  1
-                                                                                                                                                                             }
-                                                                                                                                                                },
-                                                                                                                                                                {
-                                                                                                                                                                    "type":  "ComboBoxString",
-                                                                                                                                                                    "name":  "NoiseModelComboBox",
-                                                                                                                                                                    "props":  {
-                                                                                                                                                                                  "isVariable":  true,
-                                                                                                                                                                                  "options":  [
-                                                                                                                                                                                                  "None",
-                                                                                                                                                                                                  "Gaussian"
-                                                                                                                                                                                              ],
-                                                                                                                                                                                  "selectedOption":  "None"
-                                                                                                                                                                              },
-                                                                                                                                                                    "slot":  {
-                                                                                                                                                                                 "padding":  [
-                                                                                                                                                                                                 0,
-                                                                                                                                                                                                 0,
-                                                                                                                                                                                                 0,
-                                                                                                                                                                                                 0
-                                                                                                                                                                                             ],
-                                                                                                                                                                                 "hAlign":  "Fill",
-                                                                                                                                                                                 "vAlign":  "Center",
-                                                                                                                                                                                 "sizeRule":  "Auto"
-                                                                                                                                                                             }
-                                                                                                                                                                }
-                                                                                                                                                            ],
-                                                                                                                                               "slot":  {
-                                                                                                                                                            "padding":  [
-                                                                                                                                                                            0,
-                                                                                                                                                                            4,
-                                                                                                                                                                            0,
-                                                                                                                                                                            5
-                                                                                                                                                                        ],
-                                                                                                                                                            "hAlign":  "Fill",
-                                                                                                                                                            "vAlign":  "Top",
-                                                                                                                                                            "sizeRule":  "Auto"
-                                                                                                                                                        }
-                                                                                                                                           },
-                                                                                                                                           {
                                                                                                                                                "type":  "VerticalBox",
                                                                                                                                                "name":  "NoiseStdDevRow",
                                                                                                                                                "children":  [
@@ -2022,9 +1955,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  3,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -2189,9 +2122,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  0,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -2356,9 +2289,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  0,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },
@@ -2442,10 +2375,10 @@
                                                                                                                                                                                   "maxFractionalDigits":  0,
                                                                                                                                                                                   "minDesiredWidth":  100,
                                                                                                                                                                                   "foregroundColor":  [
-                                                                                                                                                                                                          0.91,
-                                                                                                                                                                                                          0.96,
-                                                                                                                                                                                                          1,
-                                                                                                                                                                                                          1
+                                                                                                                                                                                                          0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               1
                                                                                                                                                                                                       ]
                                                                                                                                                                               },
                                                                                                                                                                     "slot":  {
@@ -2776,9 +2709,9 @@
                                                                                                                                                                                                        "maxFractionalDigits":  0,
                                                                                                                                                                                                        "minDesiredWidth":  82,
                                                                                                                                                                                                        "foregroundColor":  [
-                                                                                                                                                                                                                               0.91,
-                                                                                                                                                                                                                               0.96,
-                                                                                                                                                                                                                               1,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
+                                                                                                                                                                                                                               0.02,
                                                                                                                                                                                                                                1
                                                                                                                                                                                                                            ]
                                                                                                                                                                                                    },

@@ -108,6 +108,11 @@ private:
 	TObjectPtr<USpinBox> RandomSeedSpinBox = nullptr;
 
 	UPROPERTY(Transient)
+	TObjectPtr<UCheckBox> NoiseEnabledCheckBox = nullptr;
+
+	ECheckBoxState NoiseEnabledDefaultState = ECheckBoxState::Unchecked;
+
+	UPROPERTY(Transient)
 	TObjectPtr<UCheckBox> DrawScanPointsCheckBox = nullptr;
 
 	ECheckBoxState DrawScanPointsDefaultState = ECheckBoxState::Unchecked;
