@@ -2078,7 +2078,7 @@
                                                                                                                                                                                          "props":  {
                                                                                                                                                                                                        "isVariable":  true,
                                                                                                                                                                                                        "minValue":  0,
-                                                                                                                                                                                                       "maxValue":  50,
+                                                                                                                                                                                                       "maxValue":  100,
                                                                                                                                                                                                        "value":  0,
                                                                                                                                                                                                        "stepSize":  1,
                                                                                                                                                                                                        "barColor":  [
@@ -2113,9 +2113,9 @@
                                                                                                                                                                                          "props":  {
                                                                                                                                                                                                        "isVariable":  true,
                                                                                                                                                                                                        "minValue":  0,
-                                                                                                                                                                                                       "maxValue":  50,
+                                                                                                                                                                                                       "maxValue":  100,
                                                                                                                                                                                                        "minSliderValue":  0,
-                                                                                                                                                                                                       "maxSliderValue":  50,
+                                                                                                                                                                                                       "maxSliderValue":  100,
                                                                                                                                                                                                        "value":  0,
                                                                                                                                                                                                        "delta":  1,
                                                                                                                                                                                                        "minFractionalDigits":  0,

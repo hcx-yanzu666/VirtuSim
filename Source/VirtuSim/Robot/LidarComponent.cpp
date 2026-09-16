@@ -110,7 +110,7 @@ void ULidarComponent::performScan()
 		float Angle = ScanState.AngleMinRadians + i * ScanState.AngleIncrementRadians;
 		FVector LocalDirection(
 			FMath::Cos(Angle),
-			FMath::Sin(Angle),
+			-FMath::Sin(Angle),
 			0.0f
 		);
 		//把 LiDAR 自己坐标系中的方向 -> 世界坐标系中的方向

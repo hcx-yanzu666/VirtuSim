@@ -579,7 +579,7 @@ void URobotSimLabWidget::HandleApplySensorParametersClicked()
 	NewParameters.RangeMaxMeters = SensorParameterSpinBoxes[MaximumRangeIndex]->GetValue();
 	NewParameters.bNoiseEnabled = NoiseEnabledCheckBox->GetCheckedState() == ECheckBoxState::Checked;
 	NewParameters.NoiseStdDevMeters = SensorParameterSpinBoxes[NoiseStdDevIndex]->GetValue();
-	// UI 使用百分比（0~50%），组件参数使用概率（0~1）。
+	// UI 使用百分比（0~100%），组件参数使用概率（0~1）。
 	NewParameters.DropoutProbability =
 		SensorParameterSpinBoxes[DropoutProbabilityIndex]->GetValue() / 100.0f;
 	NewParameters.FixedDelayMilliseconds = SensorParameterSpinBoxes[FixedDelayIndex]->GetValue();
