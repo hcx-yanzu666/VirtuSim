@@ -34,21 +34,59 @@ void ULidarComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 		return;
 	}
 
-	if (Parameters.ScanFrequencyHz <= 0.0f)
+	UWorld* World = GetWorld();
+	if (World == nullptr)
 	{
 		return;
 	}
 
-	scanElapsedSeconds += DeltaTime;
+	if (Parameters.ScanFrequencyHz > 0.0f)
+	{
+		scanElapsedSeconds += DeltaTime;
+		const float scanIntervalSeconds = 1.0f / Parameters.ScanFrequencyHz;
+		if (scanElapsedSeconds >= scanIntervalSeconds)
+		{
+			performScan();
+			scanElapsedSeconds = 0.0f;
+		}
+	}
 
-	const float scanIntervalSeconds = 1.0f / Parameters.ScanFrequencyHz;
-	if (scanElapsedSeconds < scanIntervalSeconds)
+	// 先扫描入队，再每帧检查到期数据：0ms 新帧可以当帧发布。
+	// 即使本帧不扫描，也必须检查队列，避免额外等待一个扫描周期。
+	PublishReadyScans(World->GetTimeSeconds());
+}
+
+void ULidarComponent::PublishReadyScans(double CurrentTimeSeconds)
+{
+	UWorld* World = GetWorld();
+	if (World == nullptr)
 	{
 		return;
 	}
 
-	performScan();
-	scanElapsedSeconds = 0.0f;
+	URosCommunicationSubsystem* RosSubsystem = World->GetSubsystem<URosCommunicationSubsystem>();
+	if (RosSubsystem == nullptr)
+	{
+		return;
+	}
+
+	while (const FPendingLidarScan* PendingScan = PendingScans.Peek())
+	{
+		// 同一配置内延迟固定，队首未到期时后续帧也未到期；应用新配置时会清空队列。
+		if (PendingScan->PublishAtSeconds > CurrentTimeSeconds)
+		{
+			break;
+		}
+
+		if (!RosSubsystem->PublishScan(PendingScan->ScanState))
+		{
+			break;
+		}
+
+		// 发布后再移除；Pop 后不再访问队首指针。
+		PendingScans.Pop();
+		--PendingScanCount;
+	}
 }
 
 bool ULidarComponent::ApplyRuntimeParameters(const FLidarParameters& InParameters, FString& OutError)
@@ -63,6 +101,8 @@ bool ULidarComponent::ApplyRuntimeParameters(const FLidarParameters& InParameter
 
 	Parameters = InParameters;
 	ResetRandomStreams();
+	PendingScans.Empty();
+	PendingScanCount = 0;
 	// 扫描频率可能变了，重新开始计时，避免沿用旧频率下累计的时间。
 	scanElapsedSeconds = 0.0f;
 	return true;
@@ -70,8 +110,6 @@ bool ULidarComponent::ApplyRuntimeParameters(const FLidarParameters& InParameter
 
 void ULidarComponent::performScan()
 {
-	UE_LOG(LogTemp, Display, TEXT("LiDAR 执行扫描，频率=%.1fHz"), Parameters.ScanFrequencyHz);
-
 	AActor* OwnerActor = GetOwner();
 	UWorld* World = GetWorld();
 
@@ -189,10 +227,21 @@ void ULidarComponent::performScan()
 			}
 		}
 	}
-
-	if (URosCommunicationSubsystem* RosSubsystem = World->GetSubsystem<URosCommunicationSubsystem>())
+	FPendingLidarScan PendingScan;
+	PendingScan.ScanState = ScanState;
+	PendingScan.PublishAtSeconds =
+		ScanState.TimestampSeconds
+		+ Parameters.FixedDelayMilliseconds / 1000.0;
+	// ROS 长期无法发布时只保留最近的有限帧，避免内存随运行时间持续增长。
+	// 正常延迟所需帧数小于上限，因此不会改变正常的固定延迟行为。
+	while (PendingScanCount >= MaxPendingScanCount)
 	{
-		RosSubsystem->PublishScan(ScanState);
+		PendingScans.Pop();
+		--PendingScanCount;
+	}
+	if (PendingScans.Enqueue(MoveTemp(PendingScan)))
+	{
+		++PendingScanCount;
 	}
 }
 
