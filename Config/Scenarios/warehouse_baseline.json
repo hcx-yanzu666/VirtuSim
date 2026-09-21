@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "scenario_id": "warehouse_baseline",
+  "description": "仓库单机器人理想 LiDAR 基准导航",
+  "coordinate_system": "ue_world_cm_deg",
+  "timeout_seconds": 120.0,
+  "robots": [
+    {
+      "id": "robot_01",
+      "actor_tag": "ScenarioRobot_01",
+      "start": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 80.0,
+        "yaw": 0.0
+      },
+      "goal": {
+        "x": 500.0,
+        "y": 0.0,
+        "z": 0.0,
+        "yaw": 0.0
+      },
+      "lidar": {
+        "scan_frequency_hz": 10.0,
+        "angle_increment_degrees": 1.0,
+        "horizontal_fov_degrees": 360.0,
+        "range_min_meters": 0.1,
+        "range_max_meters": 10.0,
+        "noise_enabled": false,
+        "noise_std_dev_meters": 0.0,
+        "dropout_probability": 0.0,
+        "fixed_delay_milliseconds": 0.0,
+        "random_seed": 1234
+      }
+    }
+  ]
+}
