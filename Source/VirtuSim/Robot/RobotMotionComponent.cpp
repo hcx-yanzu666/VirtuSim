@@ -73,20 +73,32 @@ void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		}
 	}
 
+	const FVector PreviousLocation = OwnerActor->GetActorLocation();
+	const FVector MovementForward = OwnerActor->GetActorForwardVector();
 	if (!FMath::IsNearlyZero(currentLinearX) || !FMath::IsNearlyZero(currentAngularZ))
 	{
 		// 线速度 * 帧时间 = 本帧位移距离。
 		// GetActorForwardVector 表示 Actor 当前正前方，所以机器人会沿自身朝向前进。
-		const FVector DeltaLocation = OwnerActor->GetActorForwardVector() * static_cast<float>(currentLinearX * DeltaTime);
-		OwnerActor->AddActorWorldOffset(DeltaLocation, false);
+		const FVector DeltaLocation = MovementForward * static_cast<float>(currentLinearX * DeltaTime);
+		FHitResult MoveHit;
+		OwnerActor->AddActorWorldOffset(DeltaLocation, true, &MoveHit);
+		if (MoveHit.bBlockingHit)
+		{
+			// Sweep 已截断本帧位移；停止沿旧指令继续推进，等待下一条 /cmd_vel。
+			currentLinearX = 0.0;
+		}
 
 		// FRotator(Pitch, Yaw, Roll)，地面机器人平面运动只需要修改 Yaw。
+		// 保留转向以便导航恢复；UE 不支持完整的旋转 Sweep，方形底盘转动仍可能擦碰。
 		const FRotator DeltaRotation(0.0f, static_cast<float>(currentAngularZ * DeltaTime), 0.0f);
 		OwnerActor->AddActorWorldRotation(DeltaRotation);
 	}
 
 	// 移动完成后再更新内部 odom 状态，确保保存的是最新位姿。
-	currentOdom.LinearX = currentLinearX;
+	// 真值里程计使用实际位移，避免被障碍挡住后仍报告指令线速度。
+	currentOdom.LinearX = DeltaTime > SMALL_NUMBER
+		? FVector::DotProduct(OwnerActor->GetActorLocation() - PreviousLocation, MovementForward) / DeltaTime
+		: 0.0;
 	currentOdom.AngularZ = currentAngularZ;
 	currentOdom.Position = OwnerActor->GetActorLocation();
 	currentOdom.Rotation = OwnerActor->GetActorRotation();
