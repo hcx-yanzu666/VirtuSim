@@ -24,6 +24,7 @@ const FString kCmdVelTopic = TEXT("/cmd_vel");
 const FString kOdomTopic = TEXT("/odom");
 const FString kScanTopic = TEXT("/scan");
 const FString kNavigationGoalTopic = TEXT("/virtusim/goal_pose");
+const FString kNavigationCancelTopic = TEXT("/virtusim/cancel_navigation");
 const FString kNavigationStatusTopic = TEXT("/virtusim/navigation_status");
 const FString kNavigationPathTopic = TEXT("/plan");
 }
@@ -91,6 +92,13 @@ void URosCommunicationSubsystem::Initialize(FSubsystemCollectionBase& Collection
             Error,
             TEXT("ROS通信探针创建发布者失败，Topic=%s"),
             *kNavigationGoalTopic);
+        RosNode = nullptr;
+        return;
+    }
+
+    if (!RosNode->AddPublisher<FString>(kNavigationCancelTopic, FROSQOSProfile(), false))
+    {
+        UE_LOG(LogTemp, Error, TEXT("创建取消导航发布者失败"));
         RosNode = nullptr;
         return;
     }
@@ -278,6 +286,18 @@ bool URosCommunicationSubsystem::CreateRosNode()
     return RosNode != nullptr;
 }
 
+bool URosCommunicationSubsystem::CancelNavigation()
+{
+    if (!bReady || !RosNode || !RosNode->Publish<FString>(kNavigationCancelTopic, TEXT("cancel")))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("取消导航请求发布失败"));
+        return false;
+    }
+    // 状态由 Bridge 确认；DDS 发布成功不代表接收端在线。
+    UE_LOG(LogTemp, Display, TEXT("已发送取消导航请求，等待 Bridge 确认"));
+    return true;
+}
+
 bool URosCommunicationSubsystem::AddTestPublisher()
 {
     if (RosNode == nullptr)
@@ -384,6 +404,11 @@ bool URosCommunicationSubsystem::AddNavigationStatusSubscriber()
                 }
 
                 WeakSubsystem->NavigationStatus = Status;
+                if (Status == TEXT("Canceled"))
+                {
+                    WeakSubsystem->LatestNavigationPath = FNavigationPathState();
+                    WeakSubsystem->bHasLatestNavigationPath = false;
+                }
                 UE_LOG(
                     LogTemp,
                     Display,
@@ -438,6 +463,11 @@ bool URosCommunicationSubsystem::AddNavigationPathSubscriber()
                     return;
                 }
 
+                // 取消后可能仍收到在途 /plan，避免旧路线重新出现。
+                if (WeakSubsystem->NavigationStatus == TEXT("Canceled"))
+                {
+                    return;
+                }
                 WeakSubsystem->LatestNavigationPath = PathState;
                 WeakSubsystem->bHasLatestNavigationPath = true;
             });

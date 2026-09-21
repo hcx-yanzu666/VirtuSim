@@ -84,6 +84,10 @@ public:
     */
     UFUNCTION(BlueprintCallable, Category = "ROS")
     bool PublishNavigationGoal(const FVector& GoalLocation, float GoalYawDegrees = 0.0f);
+
+    /** 请求 Bridge 取消当前任务；返回 true 仅表示请求已发布，并非任务已取消。 */
+    UFUNCTION(BlueprintCallable, Category = "ROS")
+    bool CancelNavigation();
     
 
     /**

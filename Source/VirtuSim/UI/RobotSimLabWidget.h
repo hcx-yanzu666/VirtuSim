@@ -38,6 +38,9 @@ protected:
 		float InDeltaTime) override;
 
 private:
+    UFUNCTION()
+    void HandleCancelNavigationClicked();
+
 	/** 切换回导航监控页面。 */
 	UFUNCTION()
 	void HandleShowNavigationClicked();

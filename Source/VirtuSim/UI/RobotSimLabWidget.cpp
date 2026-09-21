@@ -36,6 +36,14 @@ constexpr double kCentimetersPerMeter = 100.0;
 
 FText GetNavigationStatusText(const FString& Status)
 {
+    if (Status == TEXT("Canceling"))
+    {
+        return FText::FromString(TEXT("正在取消导航"));
+    }
+    if (Status == TEXT("CancelFailed"))
+    {
+        return FText::FromString(TEXT("取消未确认，可重试"));
+    }
 	if (Status == TEXT("Idle"))
 	{
 		return FText::FromString(TEXT("空闲"));
@@ -247,7 +255,8 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	AddStatusRow(WidgetTree, TaskCardContent, TEXT("当前目标"), TEXT("未设置"));
 	UButton* SetGoalButton = AddActionButton(WidgetTree, TaskCardContent, TEXT("设置导航点"), kPrimaryColor);
 	SetGoalButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleSetGoalClicked);
-	AddActionButton(WidgetTree, TaskCardContent, TEXT("取消导航"), kDangerColor)->SetIsEnabled(false);
+	UButton* CancelButton = AddActionButton(WidgetTree, TaskCardContent, TEXT("取消导航"), kDangerColor);
+	CancelButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleCancelNavigationClicked);
 	LeftContent->AddChildToVerticalBox(CreateCard(WidgetTree, TaskCardContent))->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 10.0f));
 	UVerticalBox* GoalCardContent = WidgetTree->ConstructWidget<UVerticalBox>();
 	AddPanelTitle(WidgetTree, GoalCardContent, TEXT("导航目标"));
@@ -350,6 +359,17 @@ void URobotSimLabWidget::HandleShowNavigationClicked()
 	{
 		SensorDebugPage->SetVisibility(ESlateVisibility::Collapsed);
 	}
+}
+
+void URobotSimLabWidget::HandleCancelNavigationClicked()
+{
+    URosCommunicationSubsystem* Ros = GetWorld() ? GetWorld()->GetSubsystem<URosCommunicationSubsystem>() : nullptr;
+    const bool bSent = Ros && Ros->CancelNavigation();
+    if (NavigationStatusText)
+    {
+        NavigationStatusText->SetText(FText::FromString(bSent
+            ? TEXT("取消请求已发送，等待确认") : TEXT("取消请求发送失败")));
+    }
 }
 
 void URobotSimLabWidget::HandleShowSensorDebugClicked()
