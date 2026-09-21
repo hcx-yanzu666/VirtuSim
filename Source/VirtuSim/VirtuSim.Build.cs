@@ -22,7 +22,7 @@ public class VirtuSim : ModuleRules
 			"rclcpp"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Json" });
 
 		bEnableExceptions = true;
 
