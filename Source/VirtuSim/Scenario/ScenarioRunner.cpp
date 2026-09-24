@@ -4,6 +4,7 @@
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
 #include "../Robot/LidarComponent.h"
+#include "../Communication/RosCommunicationSubsystem.h"
 
 AScenarioRunner::AScenarioRunner()
 {
@@ -123,4 +124,32 @@ void AScenarioRunner::BeginPlay()
         Robot.LidarParameters.RangeMinMeters,
         Robot.LidarParameters.RangeMaxMeters,
         Robot.LidarParameters.RandomSeed);
+
+    URosCommunicationSubsystem* RosSubsystem =
+        GetWorld()->GetSubsystem<URosCommunicationSubsystem>();
+    if (RosSubsystem == nullptr)
+    {
+        UE_LOG(LogTemp, Error, TEXT("找不到 ROS 通信子系统，无法发布场景导航目标"));
+        return;
+    }
+
+    if (!RosSubsystem->PublishNavigationGoal(
+            Robot.Goal.LocationCentimeters,
+            Robot.Goal.YawDegrees))
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("场景导航目标发布失败：Location=%s，Yaw=%.1f"),
+            *Robot.Goal.LocationCentimeters.ToString(),
+            Robot.Goal.YawDegrees);
+        return;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("已发布场景导航目标：Location=%s，Yaw=%.1f"),
+        *Robot.Goal.LocationCentimeters.ToString(),
+        Robot.Goal.YawDegrees);
 }
