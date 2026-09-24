@@ -3,6 +3,7 @@
 #include "ScenarioLoader.h"
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
+#include "../Robot/LidarComponent.h"
 
 AScenarioRunner::AScenarioRunner()
 {
@@ -88,4 +89,38 @@ void AScenarioRunner::BeginPlay()
         *RobotActor->GetName(),
         *Robot.Start.LocationCentimeters.ToString(),
         Robot.Start.YawDegrees);
+
+    ULidarComponent* LidarComponent =
+        RobotActor->FindComponentByClass<ULidarComponent>();
+    if (LidarComponent == nullptr)
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("机器人缺少 ULidarComponent：Actor=%s"),
+            *RobotActor->GetName());
+        return;
+    }
+
+    FString LidarError;
+    if (!LidarComponent->ApplyRuntimeParameters(
+            Robot.LidarParameters,
+            LidarError))
+    {
+        UE_LOG(
+            LogTemp,
+            Error,
+            TEXT("应用场景 LiDAR 参数失败：%s"),
+            *LidarError);
+        return;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("已应用场景 LiDAR 参数：Frequency=%.1fHz Range=%.1f-%.1fm Seed=%d"),
+        Robot.LidarParameters.ScanFrequencyHz,
+        Robot.LidarParameters.RangeMinMeters,
+        Robot.LidarParameters.RangeMaxMeters,
+        Robot.LidarParameters.RandomSeed);
 }
