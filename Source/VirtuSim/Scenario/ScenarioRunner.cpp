@@ -8,8 +8,7 @@
 
 AScenarioRunner::AScenarioRunner()
 {
-    // 当前只在 BeginPlay 加载一次，不需要每帧更新。
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 }
 
 void AScenarioRunner::BeginPlay()
@@ -152,4 +151,109 @@ void AScenarioRunner::BeginPlay()
         TEXT("已发布场景导航目标：Location=%s，Yaw=%.1f"),
         *Robot.Goal.LocationCentimeters.ToString(),
         Robot.Goal.YawDegrees);
+
+    RunState = EScenarioRunState::Navigating;
+    RunElapsedSeconds = 0.0f;
+    UE_LOG(LogTemp, Display, TEXT("场景运行状态：Navigating"));
+}
+
+void AScenarioRunner::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+
+    if (RunState != EScenarioRunState::Navigating)
+    {
+        return;
+    }
+
+    RunElapsedSeconds += DeltaSeconds;
+
+    if (RunElapsedSeconds >= Scenario.TimeoutSeconds)
+    {
+        URosCommunicationSubsystem* RosSubsystem =
+            GetWorld() ? GetWorld()->GetSubsystem<URosCommunicationSubsystem>() : nullptr;
+
+        if (RosSubsystem != nullptr)
+        {
+            RosSubsystem->CancelNavigation();
+        }
+
+        FinishRun(EScenarioRunState::TimeOut);
+        return;
+    }
+
+    UpdateNavigationState(DeltaSeconds);
+}
+
+void AScenarioRunner::StartNavigationRun()
+{
+}
+
+void AScenarioRunner::UpdateNavigationState(float DeltaSeconds)
+{
+    // 当前阶段只读取 Bridge 回传的终态；DeltaSeconds 暂留给后续超时计时使用。
+    (void)DeltaSeconds;
+
+    if (GetWorld() == nullptr)
+    {
+        return;
+    }
+
+    const URosCommunicationSubsystem* RosSubsystem =
+        GetWorld()->GetSubsystem<URosCommunicationSubsystem>();
+    if (RosSubsystem == nullptr)
+    {
+        return;
+    }
+
+    const FString NavigationStatus = RosSubsystem->GetNavigationStatus();
+    if (NavigationStatus == TEXT("Succeeded"))
+    {
+        FinishRun(EScenarioRunState::Succeeded);
+    }
+    else if (NavigationStatus == TEXT("Failed"))
+    {
+        FinishRun(EScenarioRunState::Failed);
+    }
+    else if (NavigationStatus == TEXT("Canceled"))
+    {
+        FinishRun(EScenarioRunState::Canceled);
+    }
+}
+
+void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
+{
+    if (RunState != EScenarioRunState::Navigating)
+    {
+        return;
+    }
+
+    RunState = FinalState;
+
+    const TCHAR* StateText = TEXT("Unknown");
+    switch (RunState)
+    {
+    case EScenarioRunState::Succeeded:
+        StateText = TEXT("Succeeded");
+        break;
+    case EScenarioRunState::Failed:
+        StateText = TEXT("Failed");
+        break;
+    case EScenarioRunState::Canceled:
+        StateText = TEXT("Canceled");
+        break;
+    case EScenarioRunState::TimeOut:
+        StateText = TEXT("TimeOut");
+        break;
+    default:
+        break;
+    }
+
+    UE_LOG(
+        LogTemp,
+        Display,
+        TEXT("场景运行结束：Scenario=%s，State=%s，Elapsed=%.2fs"),
+        *Scenario.ScenarioId,
+        StateText,
+        RunElapsedSeconds);
 }
