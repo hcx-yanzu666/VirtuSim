@@ -13,7 +13,7 @@ ARobotBoxActor::ARobotBoxActor()
 	PrimaryActorTick.bCanEverTick = false;
 	cubeMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CubeMesh"));
 	RootComponent = cubeMesh;
-	// Actor 的平移 Sweep 只检测根组件；用底盘的简单碰撞体阻挡场景障碍。
+	// 当前导航阶段不由 UE 碰撞体阻挡运动；后续接入 URDF/精准 footprint 后再恢复碰撞验证。
 	cubeMesh->SetMobility(EComponentMobility::Movable);
 	cubeMesh->SetCollisionProfileName(TEXT("BlockAllDynamic"));
 	cubeMesh->SetSimulatePhysics(false);

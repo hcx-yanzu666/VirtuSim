@@ -80,16 +80,12 @@ void URobotMotionComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		// 线速度 * 帧时间 = 本帧位移距离。
 		// GetActorForwardVector 表示 Actor 当前正前方，所以机器人会沿自身朝向前进。
 		const FVector DeltaLocation = MovementForward * static_cast<float>(currentLinearX * DeltaTime);
-		FHitResult MoveHit;
-		OwnerActor->AddActorWorldOffset(DeltaLocation, true, &MoveHit);
-		if (MoveHit.bBlockingHit)
-		{
-			// Sweep 已截断本帧位移；停止沿旧指令继续推进，等待下一条 /cmd_vel。
-			currentLinearX = 0.0;
-		}
+		// 当前阶段暂不让 UE 碰撞体阻挡导航运动；Nav2 负责根据 /scan 和 costmap
+		// 规划避障。接入 URDF 并校准精准 footprint 后，再恢复 Sweep 碰撞验证。
+		OwnerActor->AddActorWorldOffset(DeltaLocation, false);
 
 		// FRotator(Pitch, Yaw, Roll)，地面机器人平面运动只需要修改 Yaw。
-		// 保留转向以便导航恢复；UE 不支持完整的旋转 Sweep，方形底盘转动仍可能擦碰。
+		// 当前阶段保留转向；精准碰撞和旋转碰撞留到 URDF/footprint 校准后验证。
 		const FRotator DeltaRotation(0.0f, static_cast<float>(currentAngularZ * DeltaTime), 0.0f);
 		OwnerActor->AddActorWorldRotation(DeltaRotation);
 	}
