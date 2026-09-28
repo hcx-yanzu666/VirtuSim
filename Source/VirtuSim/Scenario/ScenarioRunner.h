@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ScenarioDefinition.h"
+#include "ScenarioRunResult.h"
 #include "ScenarioRunner.generated.h"  // 必须是最后一个 include
 
 
@@ -43,4 +44,6 @@ private:
     void StartNavigationRun();
     void UpdateNavigationState(float DeltaSeconds);
     void FinishRun(EScenarioRunState FinalState);
+    FString GetRunStateText() const;
+    void WriteRunResult();
 };

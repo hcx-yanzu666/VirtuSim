@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "../Robot/LidarComponent.h"
 #include "../Communication/RosCommunicationSubsystem.h"
+#include "Misc/Guid.h"
 
 AScenarioRunner::AScenarioRunner()
 {
@@ -154,6 +155,7 @@ void AScenarioRunner::BeginPlay()
 
     RunState = EScenarioRunState::Navigating;
     RunElapsedSeconds = 0.0f;
+    RunId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphens);
     UE_LOG(LogTemp, Display, TEXT("场景运行状态：Navigating"));
 }
 
@@ -230,30 +232,60 @@ void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
 
     RunState = FinalState;
 
-    const TCHAR* StateText = TEXT("Unknown");
-    switch (RunState)
-    {
-    case EScenarioRunState::Succeeded:
-        StateText = TEXT("Succeeded");
-        break;
-    case EScenarioRunState::Failed:
-        StateText = TEXT("Failed");
-        break;
-    case EScenarioRunState::Canceled:
-        StateText = TEXT("Canceled");
-        break;
-    case EScenarioRunState::TimeOut:
-        StateText = TEXT("TimeOut");
-        break;
-    default:
-        break;
-    }
+    const FString StateText = GetRunStateText();
 
     UE_LOG(
         LogTemp,
         Display,
         TEXT("场景运行结束：Scenario=%s，State=%s，Elapsed=%.2fs"),
         *Scenario.ScenarioId,
-        StateText,
+        *StateText,
         RunElapsedSeconds);
+
+    WriteRunResult();
+}
+
+FString AScenarioRunner::GetRunStateText() const
+{
+    switch (RunState)
+    {
+    case EScenarioRunState::Succeeded: return TEXT("Succeeded");
+    case EScenarioRunState::Failed: return TEXT("Failed");
+    case EScenarioRunState::Canceled: return TEXT("Canceled");
+    case EScenarioRunState::TimeOut: return TEXT("TimeOut");
+    default: return TEXT("Unknown");
+    }
+}
+
+void AScenarioRunner::WriteRunResult()
+{
+    if (!Scenario.Robots.IsValidIndex(0))
+    {
+        return;
+    }
+
+    const FScenarioRobotDefinition& Robot = Scenario.Robots[0];
+    FScenarioRunResult Result;
+    Result.ScenarioId = Scenario.ScenarioId;
+    Result.RunId = RunId;
+    Result.State = GetRunStateText();
+    Result.ElapsedSeconds = RunElapsedSeconds;
+    Result.GoalLocationCentimeters = Robot.Goal.LocationCentimeters;
+    Result.GoalYawDegrees = Robot.Goal.YawDegrees;
+    Result.LidarParameters = Robot.LidarParameters;
+
+    const FString Directory = FPaths::Combine(
+        FPaths::ProjectSavedDir(), TEXT("ScenarioResults"));
+    IFileManager::Get().MakeDirectory(*Directory, true);
+    const FString FilePath = FPaths::Combine(
+        Directory,
+        FString::Printf(TEXT("%s_%s.json"), *Scenario.ScenarioId, *RunId));
+
+    FString Error;
+    if (!FScenarioRunResultWriter::WriteJson(FilePath, Result, Error))
+    {
+        UE_LOG(LogTemp, Error, TEXT("场景结果写入失败：%s"), *Error);
+        return;
+    }
+    UE_LOG(LogTemp, Display, TEXT("场景结果已写入：%s"), *FilePath);
 }
