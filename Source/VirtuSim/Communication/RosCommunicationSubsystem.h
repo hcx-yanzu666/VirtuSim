@@ -6,6 +6,7 @@
 #include "../Navigation/NavigationPathState.h"
 
 class UTempoROSNode;
+DECLARE_MULTICAST_DELEGATE_OneParam(FNavigationStatusReceived, const FString&);
 class URobotMotionComponent;
 struct FLidarScanState;
 
@@ -17,6 +18,9 @@ class VIRTUSIM_API URosCommunicationSubsystem : public UWorldSubsystem
     GENERATED_BODY()
 
 public:
+    /** 游戏线程上逐条通知，避免 Tick 轮询漏掉短暂的 GoalAccepted。 */
+    FNavigationStatusReceived OnNavigationStatusReceived;
+
     /**
      * 仅在游戏运行 World 中创建通信子系统，避免编辑器加载地图时启动 ROS2。
      */

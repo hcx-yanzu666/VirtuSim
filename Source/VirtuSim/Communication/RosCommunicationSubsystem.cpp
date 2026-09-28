@@ -404,6 +404,7 @@ bool URosCommunicationSubsystem::AddNavigationStatusSubscriber()
                 }
 
                 WeakSubsystem->NavigationStatus = Status;
+                WeakSubsystem->OnNavigationStatusReceived.Broadcast(Status);
                 if (Status == TEXT("Canceled"))
                 {
                     WeakSubsystem->LatestNavigationPath = FNavigationPathState();
