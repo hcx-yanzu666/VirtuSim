@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 
 class UStaticMeshComponent;
+class UStaticMesh;
 class URobotMotionComponent;
 class ULidarComponent;
 class UNavigationPathVisualizerComponent;
@@ -24,10 +25,15 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
-	UStaticMeshComponent* cubeMesh = nullptr;
+	UStaticMeshComponent* robotBodyMesh = nullptr;
+
+	/** 主体显示网格由机器人蓝图指定，避免把某个模型资源写死在 C++ 类中。 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Robot|Appearance", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMesh> RobotBodyAsset = nullptr;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Robot", meta = (AllowPrivateAccess = "true"))
 	URobotMotionComponent* robotMotionComponent = nullptr;
