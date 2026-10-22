@@ -1,0 +1,12 @@
+{
+  "format": "virtusim_occupancy_map_v1",
+  "image": "warehouse_map.pgm",
+  "width": 720,
+  "height": 560,
+  "resolution_m": 0.050000,
+  "origin_ros_m": [-18.006060, -14.000458, 0.0],
+  "obstacle_z_cm": [10.000, 200.000],
+  "occupied_cells": 56647,
+  "collision_source": "ECC_WorldStatic",
+  "note": "This is a 2D projection of collision geometry; Nav2 footprint and inflation remain separate."
+}
