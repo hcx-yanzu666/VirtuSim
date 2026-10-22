@@ -46,3 +46,11 @@ Backup1/
 UpgradeLog*.htm
 UpgradeLog*.txt
 *.sln
+
+# Python caches and local ROS2 outputs
+__pycache__/
+*.py[cod]
+Tools/ROS2/logs/
+
+# Blender automatic backup (keep source .blend files)
+*.blend1
