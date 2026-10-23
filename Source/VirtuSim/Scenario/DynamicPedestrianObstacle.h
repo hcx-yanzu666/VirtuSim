@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -9,6 +7,7 @@
 class UCapsuleComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
+class AActor;
 
 /**
  * 可重复的固定轨迹行人障碍物。
@@ -70,12 +69,37 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Movement", meta = (AllowPrivateAccess = "true"))
 	bool bRotateAlongPath = true;
 
+	/** 用于寻找机器人 Actor 的标签；与机器人场景配置中的标签保持一致。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (AllowPrivateAccess = "true"))
+	FName RobotActorTag = FName(TEXT("ScenarioRobot_01"));
+
+	/** 行人和机器人中心的水平距离小于该值时，行人停止。单位为厘米。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float YieldDistanceCm = 180.0f;
+
+	/** 行人恢复移动前需要达到的更大距离。单位为厘米。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float ResumeDistanceCm = 260.0f;
+
+	/** 机器人离开后保持安全的时间，避免行人在临界距离反复启停。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float ResumeClearSeconds = 0.5f;
+
+	/** 允许机器人位于行人身后的一小段范围，避免行人被身后的机器人触发让行。 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float RearAllowanceCm = 50.0f;
+
 	FVector StartLocation = FVector::ZeroVector;
 	FVector EndLocation = FVector::ZeroVector;
 	float EndpointWaitRemaining = 0.0f;
+	float ResumeClearElapsed = 0.0f;
 	bool bMovingToEnd = true;
 	bool bStopped = false;
+	bool bYieldingToRobot = false;
+	TWeakObjectPtr<AActor> RobotActor;
 
 	void ApplyMeshAsset();
 	void HandleEndpointReached();
+	void FindRobotActor();
+	bool IsRobotBlockingPath(const FVector& CurrentLocation, const FVector& TravelDirection, float DistanceThresholdCm) const;
 };

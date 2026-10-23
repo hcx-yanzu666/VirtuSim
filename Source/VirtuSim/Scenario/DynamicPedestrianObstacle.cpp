@@ -5,6 +5,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
+#include "Kismet/GameplayStatics.h"
 
 ADynamicPedestrianObstacle::ADynamicPedestrianObstacle()
 {
@@ -53,8 +54,11 @@ void ADynamicPedestrianObstacle::BeginPlay()
 	StartLocation = GetActorLocation();
 	EndLocation = StartLocation + EndOffset;
 	EndpointWaitRemaining = 0.0f;
+	ResumeClearElapsed = 0.0f;
 	bMovingToEnd = true;
 	bStopped = false;
+	bYieldingToRobot = false;
+	FindRobotActor();
 
 	if (EndOffset.IsNearlyZero())
 	{
@@ -69,6 +73,52 @@ void ADynamicPedestrianObstacle::BeginPlay()
 		*StartLocation.ToString(),
 		*EndLocation.ToString(),
 		MoveSpeedCmPerSecond);
+}
+
+void ADynamicPedestrianObstacle::FindRobotActor()
+{
+	RobotActor.Reset();
+
+	if (RobotActorTag.IsNone() || GetWorld() == nullptr)
+	{
+		return;
+	}
+
+	TArray<AActor*> TaggedActors;
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), RobotActorTag, TaggedActors);
+	if (TaggedActors.Num() > 0 && IsValid(TaggedActors[0]))
+	{
+		RobotActor = TaggedActors[0];
+		UE_LOG(LogTemp, Display, TEXT("动态行人已绑定机器人：标签=%s，Actor=%s"), *RobotActorTag.ToString(), *TaggedActors[0]->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("动态行人未找到机器人标签：%s，将按原路线移动。"), *RobotActorTag.ToString());
+	}
+}
+
+bool ADynamicPedestrianObstacle::IsRobotBlockingPath(
+	const FVector& CurrentLocation,
+	const FVector& TravelDirection,
+	float DistanceThresholdCm) const
+{
+	const AActor* TrackedRobot = RobotActor.Get();
+	if (!IsValid(TrackedRobot) || DistanceThresholdCm <= 0.0f)
+	{
+		return false;
+	}
+
+	FVector ToRobot = TrackedRobot->GetActorLocation() - CurrentLocation;
+	ToRobot.Z = 0.0f;
+	const float DistanceCm = ToRobot.Size();
+	if (DistanceCm > DistanceThresholdCm)
+	{
+		return false;
+	}
+
+	// 机器人在行人身后时不触发让行；侧向横穿和前方相遇都会通过这个判断。
+	const float ForwardDistanceCm = FVector::DotProduct(ToRobot, TravelDirection);
+	return ForwardDistanceCm >= -RearAllowanceCm;
 }
 
 void ADynamicPedestrianObstacle::Tick(float DeltaSeconds)
@@ -89,6 +139,34 @@ void ADynamicPedestrianObstacle::Tick(float DeltaSeconds)
 	const FVector CurrentLocation = GetActorLocation();
 	const FVector TargetLocation = bMovingToEnd ? EndLocation : StartLocation;
 	const FVector TravelDirection = (TargetLocation - CurrentLocation).GetSafeNormal();
+
+	if (!bYieldingToRobot && IsRobotBlockingPath(CurrentLocation, TravelDirection, YieldDistanceCm))
+	{
+		bYieldingToRobot = true;
+		ResumeClearElapsed = 0.0f;
+		UE_LOG(LogTemp, Display, TEXT("动态行人前方检测到机器人，停止等待：距离约 %.1fcm"),
+			FVector::Dist2D(CurrentLocation, RobotActor->GetActorLocation()));
+		return;
+	}
+
+	if (bYieldingToRobot)
+	{
+		if (IsRobotBlockingPath(CurrentLocation, TravelDirection, ResumeDistanceCm))
+		{
+			ResumeClearElapsed = 0.0f;
+			return;
+		}
+
+		ResumeClearElapsed += DeltaSeconds;
+		if (ResumeClearElapsed < FMath::Max(0.0f, ResumeClearSeconds))
+		{
+			return;
+		}
+
+		bYieldingToRobot = false;
+		ResumeClearElapsed = 0.0f;
+		UE_LOG(LogTemp, Display, TEXT("机器人已离开安全范围，动态行人继续移动。"));
+	}
 
 	if (bRotateAlongPath && !TravelDirection.IsNearlyZero())
 	{
