@@ -63,14 +63,11 @@ void ADynamicPedestrianObstacle::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 如果 ScenarioRunner 已经在 BeginPlay 前应用了 JSON，
-	// 这里不再用蓝图默认值覆盖路线，而是直接持续执行 JSON 路线。
+	// Runner 可能先于行人 BeginPlay 应用路线；保留等待或已启动状态，
+	// 不覆盖路线，也不在这里提前开跑。
 	if (bScenarioControlled)
 	{
-		FindRobotActor();
-		// 行人不依赖 Nav2 任务状态，进入场景后立即按 JSON 路线移动。
-		StartMovement();
-		UE_LOG(LogTemp, Display, TEXT("动态行人已交由场景配置控制，开始持续移动。"));
+		SetPedestrianAnimationPaused(bStopped || bYieldingToRobot);
 		return;
 	}
 
@@ -110,10 +107,9 @@ void ADynamicPedestrianObstacle::ApplyScenarioParameters(
 	StartLocation = Definition.Start.LocationCentimeters;
 	EndLocation = Definition.End.LocationCentimeters;
 	ResetToStart();
-	StartMovement();
 
 	UE_LOG(LogTemp, Display,
-		TEXT("已应用行人场景路线：Id=%s，起点=%s，终点=%s"),
+		TEXT("已应用行人场景路线：Id=%s，起点=%s，终点=%s，等待导航开始"),
 		*Definition.Id, *StartLocation.ToString(), *EndLocation.ToString());
 }
 

@@ -242,11 +242,20 @@ void AScenarioRunner::HandleNavigationStatus(const FString& Status)
     if (bResultWritten) return;
     // 只消费新的通知，不读取上一轮缓存状态；当前仍要求独占单任务。
     if (RunState == EScenarioRunState::WaitingForAcceptance &&
-        (Status == TEXT("GoalAccepted") || Status == TEXT("Navigating")))
+        Status == TEXT("Navigating"))
     {
+        // 先切换状态，重复的 Navigating 通知不会再次启动或重置计时。
         RunState = EScenarioRunState::Navigating;
         RunElapsedSeconds = 0.0f;
-        UE_LOG(LogTemp, Display, TEXT("场景运行状态：Navigating（已接受，开始计时）"));
+        for (const TWeakObjectPtr<ADynamicPedestrianObstacle>& Pedestrian : ConfiguredPedestrians)
+        {
+            if (ADynamicPedestrianObstacle* Actor = Pedestrian.Get())
+            {
+                Actor->StartMovement();
+            }
+        }
+        UE_LOG(LogTemp, Display, TEXT("场景运行状态：Navigating（开始计时，同步启动场景行人：%d）"),
+            ConfiguredPedestrians.Num());
     }
 
     if (Status == TEXT("Succeeded") || Status == TEXT("Failed") || Status == TEXT("Canceled"))
@@ -325,6 +334,7 @@ void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
 
 bool AScenarioRunner::PrepareConfiguredPedestrians()
 {
+    ConfiguredPedestrians.Reset();
     for (const FScenarioPedestrianDefinition& Definition : Scenario.Pedestrians)
     {
         TArray<AActor*> FoundActors;
@@ -345,6 +355,7 @@ bool AScenarioRunner::PrepareConfiguredPedestrians()
         }
 
         Pedestrian->ApplyScenarioParameters(Definition);
+        ConfiguredPedestrians.Add(Pedestrian);
     }
 
     return true;

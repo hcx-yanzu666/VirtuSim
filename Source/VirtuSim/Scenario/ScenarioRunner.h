@@ -6,6 +6,7 @@
 #include "ScenarioRunResult.h"
 #include "ScenarioRunner.generated.h"  // 必须是最后一个 include
 
+class ADynamicPedestrianObstacle;
 
 UENUM()
 enum class EScenarioRunState : uint8
@@ -42,6 +43,9 @@ private:
 
     // 保存加载后的配置。
     FScenarioDefinition Scenario;
+
+    // 仅启动本轮 JSON 配置的行人，不影响关卡中其他自动往返行人。
+    TArray<TWeakObjectPtr<ADynamicPedestrianObstacle>> ConfiguredPedestrians;
 
     EScenarioRunState RunState = EScenarioRunState::Idle;
     float RunElapsedSeconds = 0.0f;
