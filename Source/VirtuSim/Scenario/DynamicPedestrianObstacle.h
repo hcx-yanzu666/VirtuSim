@@ -8,12 +8,13 @@ class UCapsuleComponent;
 class USkeletalMesh;
 class USkeletalMeshComponent;
 class AActor;
+struct FScenarioPedestrianDefinition;
 
 /**
  * 可重复的固定轨迹行人障碍物。
  *
  * 胶囊体是 LiDAR 使用的查询代理，骨骼网格只负责视觉表现。
- * Actor 初始位置为路线起点，EndOffset 为相对起点的终点偏移。
+ * 场景 JSON 可直接提供起点和终点；未由场景控制时才使用蓝图中的相对终点偏移。
  */
 UCLASS()
 class VIRTUSIM_API ADynamicPedestrianObstacle : public AActor
@@ -22,6 +23,9 @@ class VIRTUSIM_API ADynamicPedestrianObstacle : public AActor
 
 public:
 	ADynamicPedestrianObstacle();
+	void ApplyScenarioParameters(const FScenarioPedestrianDefinition& Definition);
+	void ResetToStart();
+	void StartMovement();
 
 protected:
 	virtual void BeginPlay() override;
@@ -53,52 +57,22 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Movement", meta = (AllowPrivateAccess = "true"))
 	FVector EndOffset = FVector(0.0f, 500.0f, 0.0f);
 
-	/** 行走速度，单位为厘米每秒。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Movement", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
-	float MoveSpeedCmPerSecond = 100.0f;
-
-	/** 到达端点后的停留时间，单位为秒。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Movement", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
-	float EndpointWaitSeconds = 1.0f;
-
-	/** 是否在终点和起点之间持续往返。关闭时到达终点后停止。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Movement", meta = (AllowPrivateAccess = "true"))
-	bool bLoop = true;
-
-	/** 是否让行人朝向当前运动方向。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Movement", meta = (AllowPrivateAccess = "true"))
-	bool bRotateAlongPath = true;
-
 	/** 用于寻找机器人 Actor 的标签；与机器人场景配置中的标签保持一致。 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (AllowPrivateAccess = "true"))
 	FName RobotActorTag = FName(TEXT("ScenarioRobot_01"));
 
-	/** 行人和机器人中心的水平距离小于该值时，行人停止。单位为厘米。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
-	float YieldDistanceCm = 180.0f;
-
-	/** 行人恢复移动前需要达到的更大距离。单位为厘米。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
-	float ResumeDistanceCm = 260.0f;
-
-	/** 机器人离开后保持安全的时间，避免行人在临界距离反复启停。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
-	float ResumeClearSeconds = 0.5f;
-
-	/** 允许机器人位于行人身后的一小段范围，避免行人被身后的机器人触发让行。 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pedestrian|Yield", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
-	float RearAllowanceCm = 50.0f;
-
 	FVector StartLocation = FVector::ZeroVector;
 	FVector EndLocation = FVector::ZeroVector;
-	float EndpointWaitRemaining = 0.0f;
 	float ResumeClearElapsed = 0.0f;
 	bool bMovingToEnd = true;
 	bool bStopped = false;
 	bool bYieldingToRobot = false;
+	bool bScenarioControlled = false;
 	TWeakObjectPtr<AActor> RobotActor;
 
 	void ApplyMeshAsset();
+	/** 暂停或恢复骨骼动画；Actor 停止时保留当前姿态，避免原地继续走路。 */
+	void SetPedestrianAnimationPaused(bool bPaused);
 	void HandleEndpointReached();
 	void FindRobotActor();
 	bool IsRobotBlockingPath(const FVector& CurrentLocation, const FVector& TravelDirection, float DistanceThresholdCm) const;

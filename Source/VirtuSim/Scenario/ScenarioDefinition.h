@@ -43,6 +43,18 @@ struct FScenarioRobotDefinition
 };
 
 /**
+ * 一条动态行人的场景配置；不保存运行时 Actor 指针或状态。
+ * 行人到达端点后立即反向，只有进入机器人距离阈值时才暂停。
+ */
+struct FScenarioPedestrianDefinition
+{
+    FString Id;
+    FString ActorTag;
+    FScenarioPose Start;
+    FScenarioPose End;
+};
+
+/**
  * 一轮场景的输入定义，与 JSON API 和执行逻辑解耦。
  * Loader 负责解析、校验，全部成功后输出；Runner 负责应用和任务生命周期。
  * 成员初始化仅保证构造安全，不代表默认对象已通过校验或可以直接执行。
@@ -69,4 +81,7 @@ struct FScenarioDefinition
 
     /** JSON robots：第一版必须恰好有一个元素；不允许静默忽略多余机器人。 */
     TArray<FScenarioRobotDefinition> Robots;
+
+    /** JSON pedestrians：可选；缺省为空。 */
+    TArray<FScenarioPedestrianDefinition> Pedestrians;
 };

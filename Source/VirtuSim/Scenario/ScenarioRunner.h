@@ -63,4 +63,5 @@ private:
     void FinishRun(EScenarioRunState FinalState);
     FString GetRunStateText() const;
     void WriteRunResult();
+    bool PrepareConfiguredPedestrians();
 };

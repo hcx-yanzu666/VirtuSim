@@ -30,6 +30,23 @@ bool ReadLidar(const FJsonObject& Object, FLidarParameters& Parameters)
         && Object.TryGetNumberField(TEXT("fixed_delay_milliseconds"), Parameters.FixedDelayMilliseconds)
         && Object.TryGetNumberField(TEXT("random_seed"), Parameters.RandomSeed);
 }
+
+bool ReadPedestrian(const FJsonObject& Object, FScenarioPedestrianDefinition& Pedestrian)
+{
+    const TSharedPtr<FJsonObject>* Start = nullptr;
+    const TSharedPtr<FJsonObject>* End = nullptr;
+    if (!Object.TryGetStringField(TEXT("id"), Pedestrian.Id)
+        || !Object.TryGetStringField(TEXT("actor_tag"), Pedestrian.ActorTag)
+        || !Object.TryGetObjectField(TEXT("start"), Start) || !Start->IsValid()
+        || !Object.TryGetObjectField(TEXT("end"), End) || !End->IsValid()
+        || !ReadPose(**Start, Pedestrian.Start)
+        || !ReadPose(**End, Pedestrian.End))
+    {
+        return false;
+    }
+
+    return !Pedestrian.Id.IsEmpty() && !Pedestrian.ActorTag.IsEmpty();
+}
 }
 
 bool FScenarioLoader::LoadFromFile(const FString& FilePath, FScenarioDefinition& OutScenario, FString& OutError)
@@ -96,6 +113,31 @@ bool FScenarioLoader::LoadFromFile(const FString& FilePath, FScenarioDefinition&
     }
 
     Scenario.Robots.Add(MoveTemp(Robot));
+
+    const TArray<TSharedPtr<FJsonValue>>* Pedestrians = nullptr;
+    if (Root->TryGetArrayField(TEXT("pedestrians"), Pedestrians))
+    {
+        for (int32 Index = 0; Index < Pedestrians->Num(); ++Index)
+        {
+            const TSharedPtr<FJsonObject>* PedestrianObject = nullptr;
+            if (!(*Pedestrians)[Index].IsValid()
+                || !(*Pedestrians)[Index]->TryGetObject(PedestrianObject)
+                || !PedestrianObject->IsValid())
+            {
+                OutError = FString::Printf(TEXT("行人配置不是 JSON 对象：pedestrians[%d]"), Index);
+                return false;
+            }
+
+            FScenarioPedestrianDefinition Pedestrian;
+            if (!ReadPedestrian(**PedestrianObject, Pedestrian))
+            {
+                OutError = FString::Printf(TEXT("行人字段读取失败：pedestrians[%d]"), Index);
+                return false;
+            }
+            Scenario.Pedestrians.Add(MoveTemp(Pedestrian));
+        }
+    }
+
     OutScenario = MoveTemp(Scenario);
     return true;
 }

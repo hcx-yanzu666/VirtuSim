@@ -4,6 +4,7 @@
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
 #include "../Robot/LidarComponent.h"
+#include "DynamicPedestrianObstacle.h"
 #include "../Communication/RosCommunicationSubsystem.h"
 #include "Misc/Guid.h"
 #include "HAL/PlatformTime.h"
@@ -66,6 +67,26 @@ void AScenarioRunner::BeginPlay()
 
     UE_LOG(LogTemp, Display, TEXT("扫描频率：%.1f Hz"),
         Robot.LidarParameters.ScanFrequencyHz);
+
+    UE_LOG(LogTemp, Display, TEXT("场景行人配置数量：%d"), Scenario.Pedestrians.Num());
+    for (const FScenarioPedestrianDefinition& Pedestrian : Scenario.Pedestrians)
+    {
+        UE_LOG(
+            LogTemp,
+            Display,
+            TEXT("行人配置：Id=%s Tag=%s Start=%s End=%s"),
+            *Pedestrian.Id,
+            *Pedestrian.ActorTag,
+            *Pedestrian.Start.LocationCentimeters.ToString(),
+            *Pedestrian.End.LocationCentimeters.ToString());
+    }
+
+    if (!PrepareConfiguredPedestrians())
+    {
+        ResultDetail = TEXT("Pedestrian configuration failed; see preceding UE log");
+        FinishRun(EScenarioRunState::SetupFailed);
+        return;
+    }
 
     TArray<AActor*> FoundActors;
     UGameplayStatics::GetAllActorsOfClassWithTag(
@@ -300,6 +321,33 @@ void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
         RunElapsedSeconds);
 
     WriteRunResult();
+}
+
+bool AScenarioRunner::PrepareConfiguredPedestrians()
+{
+    for (const FScenarioPedestrianDefinition& Definition : Scenario.Pedestrians)
+    {
+        TArray<AActor*> FoundActors;
+        UGameplayStatics::GetAllActorsOfClassWithTag(
+            GetWorld(), ADynamicPedestrianObstacle::StaticClass(), FName(*Definition.ActorTag), FoundActors);
+
+        if (FoundActors.Num() != 1)
+        {
+            UE_LOG(LogTemp, Error, TEXT("行人标签匹配数量错误：Tag=%s，Count=%d"),
+                *Definition.ActorTag, FoundActors.Num());
+            return false;
+        }
+
+        ADynamicPedestrianObstacle* Pedestrian = Cast<ADynamicPedestrianObstacle>(FoundActors[0]);
+        if (Pedestrian == nullptr)
+        {
+            return false;
+        }
+
+        Pedestrian->ApplyScenarioParameters(Definition);
+    }
+
+    return true;
 }
 
 FString AScenarioRunner::GetRunStateText() const

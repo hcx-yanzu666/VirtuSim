@@ -6,6 +6,17 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Kismet/GameplayStatics.h"
+#include "ScenarioDefinition.h"
+
+namespace
+{
+// 固定行为参数；场景 JSON 只负责身份与路线，不改变行人行为。
+constexpr float MoveSpeedCmPerSecond = 100.0f;
+constexpr float YieldDistanceCm = 180.0f;
+constexpr float FixedResumeDistanceCm = 260.0f;
+constexpr float ResumeClearSeconds = 0.5f;
+constexpr float RearAllowanceCm = 50.0f;
+}
 
 ADynamicPedestrianObstacle::ADynamicPedestrianObstacle()
 {
@@ -31,6 +42,7 @@ ADynamicPedestrianObstacle::ADynamicPedestrianObstacle()
 	PedestrianMesh->SetRelativeRotation(MeshRelativeRotation);
 	PedestrianMesh->SetMobility(EComponentMobility::Movable);
 	PedestrianMesh->SetCanEverAffectNavigation(false);
+	PedestrianMesh->bPauseAnims = true;
 }
 
 void ADynamicPedestrianObstacle::OnConstruction(const FTransform& Transform)
@@ -51,9 +63,20 @@ void ADynamicPedestrianObstacle::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// 如果 ScenarioRunner 已经在 BeginPlay 前应用了 JSON，
+	// 这里不再用蓝图默认值覆盖路线，而是直接持续执行 JSON 路线。
+	if (bScenarioControlled)
+	{
+		FindRobotActor();
+		// 行人不依赖 Nav2 任务状态，进入场景后立即按 JSON 路线移动。
+		StartMovement();
+		UE_LOG(LogTemp, Display, TEXT("动态行人已交由场景配置控制，开始持续移动。"));
+		return;
+	}
+
+	// 没有场景 JSON 控制时，保留旧蓝图实例的自动往返行为。
 	StartLocation = GetActorLocation();
 	EndLocation = StartLocation + EndOffset;
-	EndpointWaitRemaining = 0.0f;
 	ResumeClearElapsed = 0.0f;
 	bMovingToEnd = true;
 	bStopped = false;
@@ -63,7 +86,12 @@ void ADynamicPedestrianObstacle::BeginPlay()
 	if (EndOffset.IsNearlyZero())
 	{
 		bStopped = true;
+		SetPedestrianAnimationPaused(true);
 		UE_LOG(LogTemp, Warning, TEXT("DynamicPedestrianObstacle 的 EndOffset 为零，行人不会移动。"));
+	}
+	else
+	{
+		SetPedestrianAnimationPaused(false);
 	}
 
 	UE_LOG(
@@ -73,6 +101,51 @@ void ADynamicPedestrianObstacle::BeginPlay()
 		*StartLocation.ToString(),
 		*EndLocation.ToString(),
 		MoveSpeedCmPerSecond);
+}
+
+void ADynamicPedestrianObstacle::ApplyScenarioParameters(
+	const FScenarioPedestrianDefinition& Definition)
+{
+	bScenarioControlled = true;
+	StartLocation = Definition.Start.LocationCentimeters;
+	EndLocation = Definition.End.LocationCentimeters;
+	ResetToStart();
+	StartMovement();
+
+	UE_LOG(LogTemp, Display,
+		TEXT("已应用行人场景路线：Id=%s，起点=%s，终点=%s"),
+		*Definition.Id, *StartLocation.ToString(), *EndLocation.ToString());
+}
+
+void ADynamicPedestrianObstacle::ResetToStart()
+{
+	ResumeClearElapsed = 0.0f;
+	bMovingToEnd = true;
+	bYieldingToRobot = false;
+	bStopped = true;
+	SetPedestrianAnimationPaused(true);
+	SetActorLocation(StartLocation, false);
+
+	const FVector TravelDirection = (EndLocation - StartLocation).GetSafeNormal2D();
+	if (!TravelDirection.IsNearlyZero())
+	{
+		SetActorRotation(FRotator(0.0f, TravelDirection.Rotation().Yaw, 0.0f));
+	}
+}
+
+void ADynamicPedestrianObstacle::StartMovement()
+{
+	if (EndLocation.Equals(StartLocation, 0.1f))
+	{
+		bStopped = true;
+		SetPedestrianAnimationPaused(true);
+		return;
+	}
+
+	FindRobotActor();
+	bStopped = false;
+	SetPedestrianAnimationPaused(false);
+	UE_LOG(LogTemp, Display, TEXT("动态行人开始移动。"));
 }
 
 void ADynamicPedestrianObstacle::FindRobotActor()
@@ -125,14 +198,15 @@ void ADynamicPedestrianObstacle::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (bStopped || MoveSpeedCmPerSecond <= 0.0f || DeltaSeconds <= 0.0f)
+	if (bStopped)
 	{
+		// 每帧重新确认停止状态，避免蓝图或动画蓝图把暂停标志改回去。
+		SetPedestrianAnimationPaused(true);
 		return;
 	}
 
-	if (EndpointWaitRemaining > 0.0f)
+	if (DeltaSeconds <= 0.0f)
 	{
-		EndpointWaitRemaining = FMath::Max(0.0f, EndpointWaitRemaining - DeltaSeconds);
 		return;
 	}
 
@@ -140,10 +214,12 @@ void ADynamicPedestrianObstacle::Tick(float DeltaSeconds)
 	const FVector TargetLocation = bMovingToEnd ? EndLocation : StartLocation;
 	const FVector TravelDirection = (TargetLocation - CurrentLocation).GetSafeNormal();
 
-	if (!bYieldingToRobot && IsRobotBlockingPath(CurrentLocation, TravelDirection, YieldDistanceCm))
+	if (!bYieldingToRobot
+		&& IsRobotBlockingPath(CurrentLocation, TravelDirection, YieldDistanceCm))
 	{
 		bYieldingToRobot = true;
 		ResumeClearElapsed = 0.0f;
+		SetPedestrianAnimationPaused(true);
 		UE_LOG(LogTemp, Display, TEXT("动态行人前方检测到机器人，停止等待：距离约 %.1fcm"),
 			FVector::Dist2D(CurrentLocation, RobotActor->GetActorLocation()));
 		return;
@@ -151,24 +227,25 @@ void ADynamicPedestrianObstacle::Tick(float DeltaSeconds)
 
 	if (bYieldingToRobot)
 	{
-		if (IsRobotBlockingPath(CurrentLocation, TravelDirection, ResumeDistanceCm))
+		if (IsRobotBlockingPath(CurrentLocation, TravelDirection, FixedResumeDistanceCm))
 		{
 			ResumeClearElapsed = 0.0f;
 			return;
 		}
 
 		ResumeClearElapsed += DeltaSeconds;
-		if (ResumeClearElapsed < FMath::Max(0.0f, ResumeClearSeconds))
+		if (ResumeClearElapsed < ResumeClearSeconds)
 		{
 			return;
 		}
 
 		bYieldingToRobot = false;
 		ResumeClearElapsed = 0.0f;
+		SetPedestrianAnimationPaused(false);
 		UE_LOG(LogTemp, Display, TEXT("机器人已离开安全范围，动态行人继续移动。"));
 	}
 
-	if (bRotateAlongPath && !TravelDirection.IsNearlyZero())
+	if (!TravelDirection.IsNearlyZero())
 	{
 		const FRotator CurrentRotation = GetActorRotation();
 		const FRotator TargetRotation(0.0f, TravelDirection.Rotation().Yaw, 0.0f);
@@ -206,15 +283,18 @@ void ADynamicPedestrianObstacle::ApplyMeshAsset()
 	}
 }
 
+void ADynamicPedestrianObstacle::SetPedestrianAnimationPaused(bool bPaused)
+{
+	if (PedestrianMesh != nullptr)
+	{
+		// bPauseAnims 对动画蓝图和单节点动画都有效，暂停时会保留当前骨骼姿态。
+		PedestrianMesh->bPauseAnims = bPaused;
+	}
+}
+
 void ADynamicPedestrianObstacle::HandleEndpointReached()
 {
-	if (!bLoop && bMovingToEnd)
-	{
-		bStopped = true;
-		UE_LOG(LogTemp, Display, TEXT("动态行人已到达终点并停止。"));
-		return;
-	}
-
+	// 行人持续往返；当前阶段只有接近机器人时才允许进入停止状态。
 	bMovingToEnd = !bMovingToEnd;
-	EndpointWaitRemaining = FMath::Max(0.0f, EndpointWaitSeconds);
+	SetPedestrianAnimationPaused(false);
 }
