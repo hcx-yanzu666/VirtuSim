@@ -48,6 +48,10 @@ bool FScenarioRunResultWriter::WriteJson(
     Root->SetStringField(TEXT("detail"), Result.Detail);
     Root->SetStringField(TEXT("elapsed_time_basis"), TEXT("simulation_seconds_after_acceptance"));
     Root->SetNumberField(TEXT("elapsed_seconds"), Result.ElapsedSeconds);
+    if (Result.bTravelDistanceMeasured)
+    {
+        Root->SetNumberField(TEXT("travel_distance_meters"), Result.TravelDistanceMeters);
+    }
     Root->SetObjectField(
         TEXT("goal"),
         MakeVectorObject(Result.GoalLocationCentimeters, Result.GoalYawDegrees));

@@ -13,6 +13,9 @@ struct FScenarioRunResult
     bool bTaskEndedConfirmed = false;
     FString Detail;
     double ElapsedSeconds = 0.0;
+    /** 仅在导航开始后有实际采样；初始化失败时不报告零距离。 */
+    bool bTravelDistanceMeasured = false;
+    double TravelDistanceMeters = 0.0;
     FVector GoalLocationCentimeters = FVector::ZeroVector;
     float GoalYawDegrees = 0.0f;
     FLidarParameters LidarParameters;

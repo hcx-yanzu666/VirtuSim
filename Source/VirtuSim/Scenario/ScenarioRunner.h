@@ -46,6 +46,10 @@ private:
 
     // 仅启动本轮 JSON 配置的行人，不影响关卡中其他自动往返行人。
     TArray<TWeakObjectPtr<ADynamicPedestrianObstacle>> ConfiguredPedestrians;
+    TWeakObjectPtr<AActor> ScenarioRobotActor;
+    FVector LastRobotLocation = FVector::ZeroVector;
+    double TravelDistanceCentimeters = 0.0;
+    bool bTravelDistanceStarted = false;
 
     EScenarioRunState RunState = EScenarioRunState::Idle;
     float RunElapsedSeconds = 0.0f;
@@ -68,4 +72,5 @@ private:
     FString GetRunStateText() const;
     void WriteRunResult();
     bool PrepareConfiguredPedestrians();
+    void AccumulateTravelDistance();
 };

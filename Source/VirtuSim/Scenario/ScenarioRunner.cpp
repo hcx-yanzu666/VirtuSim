@@ -109,6 +109,7 @@ void AScenarioRunner::BeginPlay()
     }
 
     AActor* RobotActor = FoundActors[0];
+    ScenarioRobotActor = RobotActor;
 
     RobotActor->SetActorLocationAndRotation(
         Robot.Start.LocationCentimeters,
@@ -203,6 +204,8 @@ void AScenarioRunner::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if (bResultWritten) return;
+    // 导航开始后持续采样；等待取消确认期间仍可能发生移动。
+    AccumulateTravelDistance();
 
     const double WaitSeconds = FPlatformTime::Seconds() - WaitStartedWallSeconds;
     if (RunState == EScenarioRunState::Navigating)
@@ -247,6 +250,12 @@ void AScenarioRunner::HandleNavigationStatus(const FString& Status)
         // 先切换状态，重复的 Navigating 通知不会再次启动或重置计时。
         RunState = EScenarioRunState::Navigating;
         RunElapsedSeconds = 0.0f;
+        TravelDistanceCentimeters = 0.0;
+        if (AActor* Robot = ScenarioRobotActor.Get())
+        {
+            LastRobotLocation = Robot->GetActorLocation();
+            bTravelDistanceStarted = true;
+        }
         for (const TWeakObjectPtr<ADynamicPedestrianObstacle>& Pedestrian : ConfiguredPedestrians)
         {
             if (ADynamicPedestrianObstacle* Actor = Pedestrian.Get())
@@ -316,6 +325,8 @@ void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
         return;
     }
 
+    // 终态回调可能先于下一次 Tick 到达，写报告前补上最后一段位移。
+    AccumulateTravelDistance();
     bResultWritten = true;
     RunState = FinalState;
 
@@ -330,6 +341,21 @@ void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
         RunElapsedSeconds);
 
     WriteRunResult();
+}
+
+void AScenarioRunner::AccumulateTravelDistance()
+{
+    if (!bTravelDistanceStarted)
+    {
+        return;
+    }
+
+    if (AActor* Robot = ScenarioRobotActor.Get())
+    {
+        const FVector CurrentLocation = Robot->GetActorLocation();
+        TravelDistanceCentimeters += FVector::Dist2D(LastRobotLocation, CurrentLocation);
+        LastRobotLocation = CurrentLocation;
+    }
 }
 
 bool AScenarioRunner::PrepareConfiguredPedestrians()
@@ -388,6 +414,8 @@ void AScenarioRunner::WriteRunResult()
     Result.bTaskEndedConfirmed = bTaskEndedConfirmed;
     Result.Detail = ResultDetail;
     Result.ElapsedSeconds = RunElapsedSeconds;
+    Result.bTravelDistanceMeasured = bTravelDistanceStarted;
+    Result.TravelDistanceMeters = TravelDistanceCentimeters / 100.0;
     Result.GoalLocationCentimeters = Robot.Goal.LocationCentimeters;
     Result.GoalYawDegrees = Robot.Goal.YawDegrees;
     Result.LidarParameters = Robot.LidarParameters;
