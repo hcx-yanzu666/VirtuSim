@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "ScenarioDefinition.h"
 #include "ScenarioRunResult.h"
+#include "ScenarioOverlapMetrics.h"
 #include "ScenarioRunner.generated.h"  // 必须是最后一个 include
 
 class ADynamicPedestrianObstacle;
@@ -50,6 +51,11 @@ private:
     FVector LastRobotLocation = FVector::ZeroVector;
     double TravelDistanceCentimeters = 0.0;
     bool bTravelDistanceStarted = false;
+    bool bOverlapEvaluationAvailable = false;
+    bool bOverlapSamplingStarted = false;
+    // 几何缺失时本轮评价不完整，不得报告为“未重叠”。
+    bool bOverlapEvaluationIncomplete = false;
+    FScenarioOverlapMetrics OverlapMetrics;
 
     EScenarioRunState RunState = EScenarioRunState::Idle;
     float RunElapsedSeconds = 0.0f;
@@ -73,4 +79,5 @@ private:
     void WriteRunResult();
     bool PrepareConfiguredPedestrians();
     void AccumulateTravelDistance();
+    void SampleOverlapEvaluation();
 };

@@ -8,6 +8,8 @@
 #include "../Communication/RosCommunicationSubsystem.h"
 #include "Misc/Guid.h"
 #include "HAL/PlatformTime.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 
 AScenarioRunner::AScenarioRunner()
 {
@@ -206,6 +208,10 @@ void AScenarioRunner::Tick(float DeltaSeconds)
     if (bResultWritten) return;
     // 导航开始后持续采样；等待取消确认期间仍可能发生移动。
     AccumulateTravelDistance();
+    if (bOverlapSamplingStarted)
+    {
+        SampleOverlapEvaluation();
+    }
 
     const double WaitSeconds = FPlatformTime::Seconds() - WaitStartedWallSeconds;
     if (RunState == EScenarioRunState::Navigating)
@@ -256,6 +262,8 @@ void AScenarioRunner::HandleNavigationStatus(const FString& Status)
             LastRobotLocation = Robot->GetActorLocation();
             bTravelDistanceStarted = true;
         }
+        bOverlapSamplingStarted = true;
+        SampleOverlapEvaluation();
         for (const TWeakObjectPtr<ADynamicPedestrianObstacle>& Pedestrian : ConfiguredPedestrians)
         {
             if (ADynamicPedestrianObstacle* Actor = Pedestrian.Get())
@@ -327,6 +335,10 @@ void AScenarioRunner::FinishRun(EScenarioRunState FinalState)
 
     // 终态回调可能先于下一次 Tick 到达，写报告前补上最后一段位移。
     AccumulateTravelDistance();
+    if (bOverlapSamplingStarted)
+    {
+        SampleOverlapEvaluation();
+    }
     bResultWritten = true;
     RunState = FinalState;
 
@@ -356,6 +368,98 @@ void AScenarioRunner::AccumulateTravelDistance()
         TravelDistanceCentimeters += FVector::Dist2D(LastRobotLocation, CurrentLocation);
         LastRobotLocation = CurrentLocation;
     }
+}
+
+void AScenarioRunner::SampleOverlapEvaluation()
+{
+    const AActor* Robot = ScenarioRobotActor.Get();
+    if (bOverlapEvaluationIncomplete)
+    {
+        return;
+    }
+    if (Robot == nullptr)
+    {
+        bOverlapEvaluationAvailable = false;
+        bOverlapEvaluationIncomplete = true;
+        return;
+    }
+
+    // 只取机器人自身的静态网格，不受碰撞开关影响；排除路径线、调试点等组件。
+    TArray<UStaticMeshComponent*> Meshes;
+    Robot->GetComponents<UStaticMeshComponent>(Meshes);
+    // 使用无缩放的朝向坐标系，网格实际缩放由 MeshTransform 带入。
+    // 这样圆的半径仍为世界厘米，非等比缩放也不会把圆错误变大。
+    const FTransform RobotFrame(
+        FRotator(0.0, Robot->GetActorRotation().Yaw, 0.0), Robot->GetActorLocation());
+    FBox2D Footprint(EForceInit::ForceInit);
+    double FootprintMinZ = TNumericLimits<double>::Max();
+    double FootprintMaxZ = TNumericLimits<double>::Lowest();
+    for (const UStaticMeshComponent* Mesh : Meshes)
+    {
+        if (Mesh == nullptr || Mesh->GetStaticMesh() == nullptr)
+        {
+            continue;
+        }
+
+        FVector LocalMin;
+        FVector LocalMax;
+        Mesh->GetLocalBounds(LocalMin, LocalMax);
+        const FTransform MeshTransform = Mesh->GetComponentTransform();
+        for (int32 X = 0; X < 2; ++X)
+        {
+            for (int32 Y = 0; Y < 2; ++Y)
+            {
+                for (int32 Z = 0; Z < 2; ++Z)
+                {
+                    const FVector Corner(
+                        X ? LocalMax.X : LocalMin.X,
+                        Y ? LocalMax.Y : LocalMin.Y,
+                        Z ? LocalMax.Z : LocalMin.Z);
+                    const FVector InRobotSpace = RobotFrame.InverseTransformPosition(
+                        MeshTransform.TransformPosition(Corner));
+                    Footprint += FVector2D(InRobotSpace.X, InRobotSpace.Y);
+                    FootprintMinZ = FMath::Min(FootprintMinZ, InRobotSpace.Z);
+                    FootprintMaxZ = FMath::Max(FootprintMaxZ, InRobotSpace.Z);
+                }
+            }
+        }
+    }
+
+    if (!Footprint.bIsValid)
+    {
+        bOverlapEvaluationAvailable = false;
+        bOverlapEvaluationIncomplete = true;
+        return;
+    }
+    if (ConfiguredPedestrians.IsEmpty())
+    {
+        bOverlapEvaluationAvailable = false;
+        bOverlapEvaluationIncomplete = true;
+        return;
+    }
+
+    bool bAnyOverlap = false;
+    for (const TWeakObjectPtr<ADynamicPedestrianObstacle>& Pedestrian : ConfiguredPedestrians)
+    {
+        const UCapsuleComponent* Capsule = Pedestrian.IsValid() ? Pedestrian->GetCollisionCapsule() : nullptr;
+        if (Capsule == nullptr)
+        {
+            bOverlapEvaluationAvailable = false;
+            bOverlapEvaluationIncomplete = true;
+            return;
+        }
+        // 当前场景行人胶囊直立，只绕 Z 轴旋转，地面投影为圆。
+        const FVector Center = RobotFrame.InverseTransformPosition(Capsule->GetComponentLocation());
+        const float HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+        const bool bHeightOverlaps =
+            Center.Z + HalfHeight >= FootprintMinZ && Center.Z - HalfHeight <= FootprintMaxZ;
+        bAnyOverlap |= bHeightOverlaps && IsScenarioCircleOverlappingBox(
+            Footprint, FVector2D(Center.X, Center.Y), Capsule->GetScaledCapsuleRadius());
+    }
+
+    bOverlapEvaluationAvailable = true;
+    // 同帧终态回调补采时差为零，不重算一帧时长；暂停/时间缩放遵循仿真时间。
+    OverlapMetrics.Sample(bAnyOverlap, GetWorld()->GetTimeSeconds());
 }
 
 bool AScenarioRunner::PrepareConfiguredPedestrians()
@@ -416,6 +520,9 @@ void AScenarioRunner::WriteRunResult()
     Result.ElapsedSeconds = RunElapsedSeconds;
     Result.bTravelDistanceMeasured = bTravelDistanceStarted;
     Result.TravelDistanceMeters = TravelDistanceCentimeters / 100.0;
+    Result.bOverlapEvaluationAvailable = bOverlapEvaluationAvailable;
+    Result.OverlapEpisodeCount = OverlapMetrics.EpisodeCount;
+    Result.OverlapDurationSeconds = OverlapMetrics.DurationSeconds;
     Result.GoalLocationCentimeters = Robot.Goal.LocationCentimeters;
     Result.GoalYawDegrees = Robot.Goal.YawDegrees;
     Result.LidarParameters = Robot.LidarParameters;

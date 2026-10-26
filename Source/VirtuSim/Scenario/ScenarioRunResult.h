@@ -16,6 +16,10 @@ struct FScenarioRunResult
     /** 仅在导航开始后有实际采样；初始化失败时不报告零距离。 */
     bool bTravelDistanceMeasured = false;
     double TravelDistanceMeters = 0.0;
+    /** 机器人网格包围盒与配置行人胶囊的几何代理评价；独立于 Nav2 终态。 */
+    bool bOverlapEvaluationAvailable = false;
+    int32 OverlapEpisodeCount = 0;
+    double OverlapDurationSeconds = 0.0;
     FVector GoalLocationCentimeters = FVector::ZeroVector;
     float GoalYawDegrees = 0.0f;
     FLidarParameters LidarParameters;

@@ -52,6 +52,12 @@ bool FScenarioRunResultWriter::WriteJson(
     {
         Root->SetNumberField(TEXT("travel_distance_meters"), Result.TravelDistanceMeters);
     }
+    Root->SetBoolField(TEXT("overlap_evaluation_available"), Result.bOverlapEvaluationAvailable);
+    if (Result.bOverlapEvaluationAvailable)
+    {
+        Root->SetNumberField(TEXT("overlap_episode_count"), Result.OverlapEpisodeCount);
+        Root->SetNumberField(TEXT("overlap_duration_seconds"), Result.OverlapDurationSeconds);
+    }
     Root->SetObjectField(
         TEXT("goal"),
         MakeVectorObject(Result.GoalLocationCentimeters, Result.GoalYawDegrees));

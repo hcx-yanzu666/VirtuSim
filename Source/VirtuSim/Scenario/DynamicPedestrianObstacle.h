@@ -26,6 +26,7 @@ public:
 	void ApplyScenarioParameters(const FScenarioPedestrianDefinition& Definition);
 	void ResetToStart();
 	void StartMovement();
+	const UCapsuleComponent* GetCollisionCapsule() const { return CollisionCapsule; }
 
 protected:
 	virtual void BeginPlay() override;
