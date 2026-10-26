@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "scenario_id": "warehouse_dynamic_pedestrian",
+  "description": "仓库单机器人与固定路线行人交互测试",
+  "coordinate_system": "ue_world_cm_deg",
+  "timeout_seconds": 120.0,
+  "robots": [
+    {
+      "id": "robot_01",
+      "actor_tag": "ScenarioRobot_01",
+      "start": { "x": 850.0, "y": 1030.0, "z": 0.0, "yaw": 0.0 },
+      "goal": { "x": 850.0, "y": 350.0, "z": 0.0, "yaw": 0.0 },
+      "lidar": {
+        "scan_frequency_hz": 10.0,
+        "angle_increment_degrees": 1.0,
+        "horizontal_fov_degrees": 360.0,
+        "range_min_meters": 0.1,
+        "range_max_meters": 10.0,
+        "noise_enabled": false,
+        "noise_std_dev_meters": 0.0,
+        "dropout_probability": 0.0,
+        "fixed_delay_milliseconds": 0.0,
+        "random_seed": 1234
+      }
+    }
+  ],
+  "pedestrians": [
+    {
+      "id": "pedestrian_01",
+      "actor_tag": "ScenarioPedestrian_01",
+      "start": { "x": 1290.0, "y": 180.0, "z": 90.0, "yaw": 90.0 },
+      "end": { "x": 1290.0, "y": 720.0, "z": 90.0, "yaw": 90.0 }
+    }
+  ]
+}

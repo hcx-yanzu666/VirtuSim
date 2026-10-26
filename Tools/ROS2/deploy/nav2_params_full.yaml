@@ -70,11 +70,11 @@ controller_server:
       debug_trajectory_details: True
       min_vel_x: 0.0
       min_vel_y: 0.0
-      max_vel_x: 0.26
+      max_vel_x: 0.5
       max_vel_y: 0.0
       max_vel_theta: 1.0
       min_speed_xy: 0.0
-      max_speed_xy: 0.26
+      max_speed_xy: 0.5
       min_speed_theta: 0.0
       acc_lim_x: 2.5
       acc_lim_y: 0.0
@@ -93,8 +93,15 @@ controller_server:
       trans_stopped_velocity: 0.10
       short_circuit_trajectory_evaluation: True
       stateful: True
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      BaseObstacle.scale: 0.05
+      critics:
+        - RotateToGoal
+        - Oscillation
+        - ObstacleFootprint
+        - GoalAlign
+        - PathAlign
+        - PathDist
+        - GoalDist
+      ObstacleFootprint.scale: 0.05
       PathAlign.scale: 24.0
       PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 20.0
@@ -121,7 +128,8 @@ local_costmap:
       width: 6
       height: 6
       resolution: 0.05
-      robot_radius: 0.45
+      footprint: "[[0.20, 0.45], [-1.50, 0.45], [-1.50, -0.45], [0.20, -0.45]]"
+      footprint_padding: 0.05
       plugins: ["obstacle_layer", "inflation_layer"]
 
       obstacle_layer:
@@ -163,7 +171,8 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_link
-      robot_radius: 0.45
+      footprint: "[[0.20, 0.45], [-1.50, 0.45], [-1.50, -0.45], [0.20, -0.45]]"
+      footprint_padding: 0.05
       resolution: 0.05
       track_unknown_space: True
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
@@ -184,9 +193,9 @@ global_costmap:
           clearing: True
           max_obstacle_height: 2.0
           obstacle_min_range: 0.0
-          obstacle_max_range: 5.0
+          obstacle_max_range: 9.0
           raytrace_min_range: 0.0
-          raytrace_max_range: 5.5
+          raytrace_max_range: 9.5
           observation_persistence: 0.50
 
       inflation_layer:
@@ -248,7 +257,12 @@ behavior_server:
     costmap_topic: local_costmap/costmap_raw
     footprint_topic: local_costmap/published_footprint
     cycle_frequency: 10.0
-    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    behavior_plugins:
+      - spin
+      - backup
+      - drive_on_heading
+      - assisted_teleop
+      - wait
     spin:
       plugin: "nav2_behaviors/Spin"
     backup:
@@ -276,7 +290,7 @@ waypoint_follower:
     use_sim_time: True
     loop_rate: 20
     stop_on_failure: False
-    waypoint_task_executor_plugin: "wait_at_waypoint"
+    waypoint_task_executor_plugin: wait_at_waypoint
     wait_at_waypoint:
       plugin: "nav2_waypoint_follower::WaitAtWaypoint"
       enabled: True
@@ -288,7 +302,7 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    max_velocity: [0.26, 0.0, 1.0]
+    max_velocity: [0.5, 0.0, 1.0]
     min_velocity: [-0.05, 0.0, -1.0]
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]

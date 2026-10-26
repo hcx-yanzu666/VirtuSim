@@ -54,3 +54,9 @@ Tools/ROS2/logs/
 
 # Blender automatic backup (keep source .blend files)
 *.blend1
+
+# Local-only project notes and historical troubleshooting records
+Docs/Archive/
+Docs/Troubleshooting/LiDAR镜像问题.md
+Docs/Troubleshooting/ROS2与Nav2排查.md
+Docs/面试准备/

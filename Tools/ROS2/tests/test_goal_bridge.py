@@ -24,7 +24,7 @@ sys.modules["geometry_msgs.msg"].PoseStamped = Mock
 sys.modules["nav2_msgs.action"].NavigateToPose = Mock()
 sys.modules["std_msgs.msg"].String = Mock
 spec = importlib.util.spec_from_file_location(
-    "bridge", Path(__file__).resolve().parents[1] / "scripts" / "goal_bridge.py")
+    "bridge", Path(__file__).resolve().parents[1] / "deploy" / "goal_bridge.py")
 bridge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(bridge)
 

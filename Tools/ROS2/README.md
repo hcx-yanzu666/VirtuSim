@@ -1,55 +1,54 @@
-# ROS2 工具与部署目录
+# ROS2 部署
 
-这里保存需要部署到 Ubuntu 的脚本、参数和地图。完整启动步骤见 [运行指南](../../Docs/运行指南.md)，导航排错见 [ROS2 与 Nav2 排查](../../Docs/Troubleshooting/ROS2与Nav2排查.md)。
+需要替换 Ubuntu 文件时，只使用 [`deploy/`](deploy/) 文件夹。里面是当前可直接复制的运行文件：
 
-## 目录对应
-
-| 仓库位置 | Ubuntu 位置 / 用途 |
-|---|---|
-| `scripts/goal_bridge.py` | `/home/ros2/virtusim_nav2/scripts/goal_bridge.py`，目标、取消与 Action 状态桥接 |
-| `scripts/virtusim_nav_diagnostics.py` | 同名 `scripts/` 路径，采集运行日志 |
-| `params/` | 对应 Ubuntu `params/`；当前只保存旧基线，见 [参数说明](params/README.md) |
-| `maps/` | 对应 Ubuntu `maps/`；当前是候选快照，见 [地图说明](maps/README.md) |
-| `tests/` | Bridge 离线测试，不需要部署到运行目录 |
-
-Ubuntu 上只运行一个 `goal_bridge.py` 实例。UE 已通过 TempoROS 接入 ROS2；这里的 Python Bridge 专门把目标 / 取消 Topic 转交 Nav2 Action，并将执行状态回传 UE。
-
-## 从共享文件夹更新脚本
-
-以下命令在 Ubuntu 执行。先把仓库中的两个脚本复制到共享目录，再按实际挂载位置调整 `SHARE`。历史挂载点是 `/mnt/hgfs/ShareVmware`。
-
-```bash
-SHARE=/mnt/hgfs/ShareVmware
-TARGET=/home/ros2/virtusim_nav2
-BACKUP="$TARGET/backups/scripts_$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$TARGET/scripts" "$TARGET/logs" "$BACKUP"
-
-# 更新前先停止旧 Bridge 和诊断进程。
-for name in goal_bridge.py virtusim_nav_diagnostics.py; do
-  if [ -f "$TARGET/scripts/$name" ]; then
-    cp -p "$TARGET/scripts/$name" "$BACKUP/"
-  fi
-done
-
-python3 -m py_compile "$SHARE/goal_bridge.py" "$SHARE/virtusim_nav_diagnostics.py" && \
-  cp "$SHARE/goal_bridge.py" "$SHARE/virtusim_nav_diagnostics.py" "$TARGET/scripts/"
+```text
+deploy/
+├── nav2_params_full.yaml
+├── warehouse_map.yaml
+├── warehouse_map.pgm
+├── goal_bridge.py
+└── virtusim_nav_diagnostics.py
 ```
 
-若共享目录里保留了仓库层级，`SHARE` 应改为其 `Tools/ROS2/scripts` 目录。此步骤只更新脚本；地图和 Nav2 参数分别核对后更新。
+Windows 将 `deploy` 文件夹复制到 VMware 共享目录后，在 Ubuntu 执行：
 
-## 离线测试
+```bash
+source /opt/ros/humble/setup.bash
+export ROS_DOMAIN_ID=0
+unset ROS_LOCALHOST_ONLY
 
-在项目根目录运行，不需要安装 ROS2：
+SHARE=/mnt/hgfs/ShareVmware/deploy
+TARGET=/home/ros2/virtusim_nav2
+BACKUP="$TARGET/backups/deploy_$(date +%Y%m%d_%H%M%S)"
+
+mkdir -p "$BACKUP" "$TARGET/params" "$TARGET/maps" "$TARGET/scripts"
+cp -p "$TARGET/params/nav2_params_full.yaml" "$BACKUP/" 2>/dev/null || true
+cp -p "$TARGET/maps/warehouse_map.yaml" "$TARGET/maps/warehouse_map.pgm" "$BACKUP/" 2>/dev/null || true
+cp -p "$TARGET/scripts/goal_bridge.py" "$TARGET/scripts/virtusim_nav_diagnostics.py" "$BACKUP/" 2>/dev/null || true
+
+python3 -m py_compile \
+  "$SHARE/goal_bridge.py" \
+  "$SHARE/virtusim_nav_diagnostics.py"
+
+cp "$SHARE/nav2_params_full.yaml" "$TARGET/params/"
+cp "$SHARE/warehouse_map.yaml" "$SHARE/warehouse_map.pgm" "$TARGET/maps/"
+cp "$SHARE/goal_bridge.py" "$SHARE/virtusim_nav_diagnostics.py" "$TARGET/scripts/"
+```
+
+然后按 [运行指南](../../Docs/运行指南.md) 重启 Nav2 和 Bridge。Nav2 使用：
+
+```bash
+ros2 launch nav2_bringup bringup_launch.py \
+  map:=/home/ros2/virtusim_nav2/maps/warehouse_map.yaml \
+  params_file:=/home/ros2/virtusim_nav2/params/nav2_params_full.yaml \
+  use_sim_time:=true
+```
+
+`deploy/` 是唯一需要复制到 Ubuntu 的目录；`tests/` 只保存不需要 ROS2 的离线测试。
+
+`tests/` 中的 Bridge 测试不需要 ROS2：
 
 ```bash
 python3 -m unittest discover -s Tools/ROS2/tests -p "test_*.py" -v
 ```
-
-Windows 未配置 Python PATH 时，可使用本机 UE 附带的解释器：
-
-```powershell
-& 'C:\Program Files\Epic Games\UE_5.6\Engine\Binaries\ThirdParty\Python3\Win64\python.exe' `
-  -B -m unittest discover -s Tools/ROS2/tests -p 'test_*.py' -v
-```
-
-这些测试使用 ROS 接口替身验证取消、替换目标和异步终态处理，不等同于 Nav2 端到端验证。

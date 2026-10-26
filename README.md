@@ -20,9 +20,8 @@ UE 导航目标 / 取消 → Python goal_bridge → Nav2 Action → 状态回传
 | 理解模块和数据流 | [系统架构](Docs/系统架构.md) |
 | 修改自动场景输入 | [场景 JSON 格式](Docs/场景JSON格式.md) · [基准场景](Config/Scenarios/warehouse_baseline.json) |
 | 部署 Ubuntu 脚本、核对参数和地图 | [ROS2 工具说明](Tools/ROS2/README.md) |
-| 排查导航、TF、频率问题 | [ROS2 与 Nav2 排查](Docs/Troubleshooting/ROS2与Nav2排查.md) |
-| 生成和导入仓库 | [仓库生成工具](Tools/WarehouseGenerator/README.md) |
-| 从当前关卡导出导航地图 | [UE 场景地图导出](Tools/WarehouseGenerator/UE场景地图导出.md) |
+| 运行与更新导航 | [运行指南](Docs/运行指南.md) |
+| 从当前关卡导出导航地图 | [UE 场景地图导出](Docs/UE场景地图导出.md) |
 | 查看版本规划 | [演进路线](Docs/演进路线.md) |
 
 ## 当前能力与边界
@@ -46,13 +45,13 @@ Config/Scenarios/         自动场景输入，UE 世界厘米 / 角度
 Config/UMGAutoBuilder/    UI 定义
 Docs/                     当前文档、排障记录和历史归档
 Tools/ROS2/               Ubuntu 脚本、参数、地图与离线测试
-Tools/WarehouseGenerator/ 仓库生成、导入及地图导出工具
+Source/VirtuSim/Scene/NavigationMapExporter.* 当前 UE 关卡地图导出工具
 Skill/                    AI 协作与教学约定
 Saved/ScenarioResults/    UE 单轮报告，本机输出，不提交 Git
 ```
 
 Windows 侧使用 UE 5.6 和对应 C++ 构建环境；Ubuntu 侧使用 ROS2 Humble、Nav2 和 RViz2。依赖插件、Git 子模块和 LFS 资产需准备齐全；具体运行步骤见运行指南。当前工程默认地图不是导航测试地图，需要在编辑器中手动打开 `LidarTestMap`。
 
-仓库保留的 Nav2 YAML 是旧圆形底盘基线，尚未取得 Ubuntu 上调好的完整配置快照；部署前请先阅读 [参数状态说明](Tools/ROS2/params/README.md)。演示视频与重复实验结果后续补充。
+Ubuntu 需要替换的 Nav2 参数、地图和 ROS2 脚本集中在 [Tools/ROS2/deploy](Tools/ROS2/deploy)。`params/`、`maps/`、`scripts/` 仅用于开发和测试；归档后重复启动验证、动态场景实验和演示视频仍待补充。
 
-最新地图快照来自当前 UE 关卡，仍待完成导航验证。自动场景要求机器人标签唯一；新地图联调时曾因旧机器人与新机器人标签重复导致初始化失败，不能据此认定地图已验收。
+部署文件中的地图来自当前 UE 关卡，仍待完成导航验证。自动场景要求机器人标签唯一；新地图联调时曾因旧机器人与新机器人标签重复导致初始化失败，不能据此认定地图已验收。
