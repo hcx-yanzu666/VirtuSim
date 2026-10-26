@@ -36,6 +36,10 @@ constexpr double kCentimetersPerMeter = 100.0;
 
 FText GetNavigationStatusText(const FString& Status)
 {
+    if (Status == TEXT("WaitingForAcceptance"))
+    {
+        return FText::FromString(TEXT("等待目标接受"));
+    }
     if (Status == TEXT("Canceling"))
     {
         return FText::FromString(TEXT("正在取消导航"));

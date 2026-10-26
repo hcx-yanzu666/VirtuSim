@@ -191,6 +191,7 @@ bool URosCommunicationSubsystem::PublishScan(const FLidarScanState& State)
         return false;
     }
 
+    LastPublishedScanSeconds = State.TimestampSeconds;
     return true;
 }
 
@@ -200,7 +201,12 @@ bool URosCommunicationSubsystem::PublishOdomTransform(const FTransform& WorldTra
     {
         return false;
     }
-    return (RosNode->PublishDynamicTransform(WorldTransform, "base_link", "odom", Time));
+    if (!RosNode->PublishDynamicTransform(WorldTransform, "base_link", "odom", Time))
+    {
+        return false;
+    }
+    LastPublishedTransformSeconds = Time;
+    return true;
 }
 
 bool URosCommunicationSubsystem::PublishMapStaticTransform()
@@ -260,6 +266,12 @@ bool URosCommunicationSubsystem::PublishNavigationGoal(const FVector& GoalLocati
             GoalYawDegrees);
         return false;
     }
+
+    // 本地 UI 先进入等待状态，避免重启 UE 后仍显示上一轮终态。
+    // 真正的 GoalAccepted/Navigating/Succeeded 仍以 bridge 通知为准。
+    NavigationStatus = TEXT("WaitingForAcceptance");
+    LatestNavigationPath = FNavigationPathState();
+    bHasLatestNavigationPath = false;
 
     UE_LOG(
         LogTemp,
@@ -403,6 +415,11 @@ bool URosCommunicationSubsystem::AddNavigationStatusSubscriber()
                     return;
                 }
 
+                // 本 World 尚未发过目标，外部任务的状态不能填入本轮 UI/Runner。
+                if (!WeakSubsystem->bHasNavigationGoal)
+                {
+                    return;
+                }
                 WeakSubsystem->NavigationStatus = Status;
                 WeakSubsystem->OnNavigationStatusReceived.Broadcast(Status);
                 if (Status == TEXT("Canceled"))
@@ -521,6 +538,12 @@ bool URosCommunicationSubsystem::TryGetLatestOdom(FRobotOdomState& OutOdomState)
 
     OutOdomState = LatestOdom;
     return true;
+}
+
+bool URosCommunicationSubsystem::HasPublishedNavigationTelemetrySince(double WorldTimeSeconds) const
+{
+    return bReady && bHasLatestOdom && LatestOdom.TimestampSeconds > WorldTimeSeconds &&
+        LastPublishedTransformSeconds > WorldTimeSeconds && LastPublishedScanSeconds > WorldTimeSeconds;
 }
 
 bool URosCommunicationSubsystem::TryGetLatestNavigationPath(FNavigationPathState& PathState) const

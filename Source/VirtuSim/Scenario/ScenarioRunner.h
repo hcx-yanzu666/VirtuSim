@@ -69,6 +69,11 @@ private:
     bool bTaskEndedConfirmed = false;
     FString ResultDetail;
     FDelegateHandle StatusDelegateHandle;
+    // 起点遥测发布后预热，再发目标，避免 Nav2 使用上一轮终点位姿。
+    double InitializationWorldSeconds = 0.0;
+    double TelemetryReadyWallSeconds = -1.0;
+    double TelemetryReadyWorldSeconds = -1.0;
+    void TryStartNavigation();
 
     UPROPERTY(EditAnywhere, Category = "Scenario", meta = (ClampMin = "1.0"))
     float AcceptanceWaitSeconds = 15.0f;

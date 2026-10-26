@@ -174,38 +174,63 @@ void AScenarioRunner::BeginPlay()
 
     StatusDelegateHandle = RosSubsystem->OnNavigationStatusReceived.AddUObject(
         this, &AScenarioRunner::HandleNavigationStatus);
-    RunState = EScenarioRunState::WaitingForAcceptance;
     WaitStartedWallSeconds = FPlatformTime::Seconds();
+    InitializationWorldSeconds = GetWorld()->GetTimeSeconds();
+    UE_LOG(LogTemp, Display, TEXT("场景运行状态：Initializing（等待本轮 odom/TF/scan 发布并预热，再发送目标）"));
+}
 
-    if (!RosSubsystem->PublishNavigationGoal(
-            Robot.Goal.LocationCentimeters,
-            Robot.Goal.YawDegrees))
+void AScenarioRunner::TryStartNavigation()
+{
+    URosCommunicationSubsystem* RosSubsystem = GetWorld()->GetSubsystem<URosCommunicationSubsystem>();
+    const double NowWall = FPlatformTime::Seconds();
+    const double NowWorld = GetWorld()->GetTimeSeconds();
+    // BeginPlay 中还没有组件 Tick，不能在瞬移起点后立刻发送目标。
+    if (RosSubsystem && RosSubsystem->HasPublishedNavigationTelemetrySince(InitializationWorldSeconds))
     {
-        UE_LOG(
-            LogTemp,
-            Error,
-            TEXT("场景导航目标发布失败：Location=%s，Yaw=%.1f"),
-            *Robot.Goal.LocationCentimeters.ToString(),
-            Robot.Goal.YawDegrees);
-        ResultDetail = TEXT("Initialization failed; see preceding UE log");
-        FinishRun(EScenarioRunState::SetupFailed);
-        return;
+        if (TelemetryReadyWallSeconds < 0.0)
+        {
+            TelemetryReadyWallSeconds = NowWall;
+            TelemetryReadyWorldSeconds = NowWorld;
+            UE_LOG(LogTemp, Display, TEXT("本轮起点遥测已发布，开始 2 秒导航预热"));
+        }
+        // 同时等墙钟和仿真时间：暂停不启动，高时间倍率也保留通信发现时间。
+        constexpr double WarmupSeconds = 2.0;
+        if (NowWall - TelemetryReadyWallSeconds >= WarmupSeconds &&
+            NowWorld - TelemetryReadyWorldSeconds >= WarmupSeconds)
+        {
+            const FScenarioRobotDefinition& Robot = Scenario.Robots[0];
+            RunState = EScenarioRunState::WaitingForAcceptance;
+            WaitStartedWallSeconds = NowWall;
+            if (!RosSubsystem->PublishNavigationGoal(Robot.Goal.LocationCentimeters, Robot.Goal.YawDegrees))
+            {
+                ResultDetail = TEXT("Navigation goal could not be published");
+                FinishRun(EScenarioRunState::SetupFailed);
+                return;
+            }
+            UE_LOG(LogTemp, Display, TEXT("已发布场景导航目标：Location=%s，Yaw=%.1f"),
+                *Robot.Goal.LocationCentimeters.ToString(), Robot.Goal.YawDegrees);
+            UE_LOG(LogTemp, Display, TEXT("场景运行状态：WaitingForAcceptance"));
+            return;
+        }
     }
 
-    UE_LOG(
-        LogTemp,
-        Display,
-        TEXT("已发布场景导航目标：Location=%s，Yaw=%.1f"),
-        *Robot.Goal.LocationCentimeters.ToString(),
-        Robot.Goal.YawDegrees);
-
-    UE_LOG(LogTemp, Display, TEXT("场景运行状态：WaitingForAcceptance"));
+    if (NowWall - WaitStartedWallSeconds >= AcceptanceWaitSeconds)
+    {
+        ResultDetail = TEXT("Startup telemetry/warmup timed out; navigation goal was not sent");
+        UE_LOG(LogTemp, Error, TEXT("导航初始化超时，本轮没有发送目标；检查 odom/TF/scan 发布及仿真是否暂停"));
+        FinishRun(EScenarioRunState::SetupFailed);
+    }
 }
 
 void AScenarioRunner::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     if (bResultWritten) return;
+    if (RunState == EScenarioRunState::Initializing)
+    {
+        TryStartNavigation();
+        return;
+    }
     // 导航开始后持续采样；等待取消确认期间仍可能发生移动。
     AccumulateTravelDistance();
     if (bOverlapSamplingStarted)
@@ -248,7 +273,7 @@ void AScenarioRunner::RequestRunCancel(EScenarioRunState Reason)
 
 void AScenarioRunner::HandleNavigationStatus(const FString& Status)
 {
-    if (bResultWritten) return;
+    if (bResultWritten || RunState == EScenarioRunState::Initializing) return;
     // 只消费新的通知，不读取上一轮缓存状态；当前仍要求独占单任务。
     if (RunState == EScenarioRunState::WaitingForAcceptance &&
         Status == TEXT("Navigating"))
@@ -312,6 +337,11 @@ void AScenarioRunner::HandleNavigationStatus(const FString& Status)
 
 void AScenarioRunner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    if (!bResultWritten && RunState == EScenarioRunState::Initializing)
+    {
+        ResultDetail = TEXT("UE EndPlay during initialization; navigation goal was not sent");
+        FinishRun(EScenarioRunState::Interrupted);
+    }
     if (URosCommunicationSubsystem* Ros = GetWorld()->GetSubsystem<URosCommunicationSubsystem>())
     {
         Ros->OnNavigationStatusReceived.Remove(StatusDelegateHandle);

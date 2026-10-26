@@ -122,6 +122,9 @@ public:
      */
     bool TryGetLatestOdom(FRobotOdomState& OutOdomState) const;
 
+    /** 本 World 的 odom、动态 TF 和扫描均已发布；这不是 Nav2 接收确认。 */
+    bool HasPublishedNavigationTelemetrySince(double WorldTimeSeconds) const;
+
     bool TryGetLatestNavigationPath(FNavigationPathState& PathState) const;
 
 private:
@@ -168,6 +171,8 @@ private:
 
     /** 是否已经成功发布过至少一帧里程计状态。 */
     bool bHasLatestOdom = false;
+    double LastPublishedTransformSeconds = -1.0;
+    double LastPublishedScanSeconds = -1.0;
 
     FNavigationPathState LatestNavigationPath;
     bool bHasLatestNavigationPath = false;
