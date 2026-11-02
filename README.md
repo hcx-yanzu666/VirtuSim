@@ -1,57 +1,50 @@
-# VirtuSim · UE5 × ROS2 导航闭环仿真
+# VirtuSim · UE5 × ROS2 移动机器人仿真与导航评测
 
-基于 UE 5.6 C++、ROS2 Humble 和 Nav2 的个人机器人仿真项目。UE 提供仓库、机器人、虚拟 LiDAR 和交互界面，Nav2 在 Ubuntu 中完成导航，控制指令回传 UE 驱动机器人运动。
-
-```text
-UE 场景 / LiDAR → /scan、/odom、TF → Nav2
-       ↑                              ↓
-       └────────── /cmd_vel ───────────┘
-
-UE 导航目标 / 取消 → Python goal_bridge → Nav2 Action → 状态回传 UE
-场景 JSON → ScenarioRunner → 单轮执行 → JSON 结果
-```
-
-## 从哪里开始
-
-| 想做什么 | 入口 |
-|---|---|
-| 重新运行一次导航 | [运行指南](Docs/运行指南.md) |
-| 了解完成情况、已知问题和下一步 | [项目现状与下一步](Docs/项目现状与下一步.md) |
-| 理解模块和数据流 | [系统架构](Docs/系统架构.md) |
-| 修改自动场景输入 | [场景 JSON 格式](Docs/场景JSON格式.md) · [基准场景](Config/Scenarios/warehouse_baseline.json) |
-| 部署 Ubuntu 脚本、核对参数和地图 | [ROS2 工具说明](Tools/ROS2/README.md) |
-| 运行与更新导航 | [运行指南](Docs/运行指南.md) |
-| 从当前关卡导出导航地图 | [UE 场景地图导出](Docs/UE场景地图导出.md) |
-| 查看版本规划 | [演进路线](Docs/演进路线.md) |
-
-## 当前能力与边界
-
-- 单机器人 LiDAR + Nav2 导航闭环，支持目标下发、取消、状态和路径显示。
-- LiDAR 参数运行时调整，支持高斯距离噪声、丢点、固定延迟和随机种子。
-- SFL_CBD16 机器人外观、固定路线动画行人；行人可被 LiDAR 检测。
-- 单机器人 JSON 场景初始化、导航生命周期管理和独立运行报告。
-- ROS2 诊断脚本与导航 Action Bridge 的离线生命周期测试。
-- 编辑器可视范围框选地图，按静态碰撞导出 PGM、YAML、元数据和 PNG 预览。
-
-目前采用运动学速度积分和真值里程计，移动时关闭 Sweep；机器人模型是 Mesh 组装，并未接入完整 URDF 动力学。动态交互、碰撞评价和批量回归仍待补齐；不将 Nav2 成功等同于无碰撞，不宣称已完成 Real2Sim / Sim2Real 验证。
-
-## 目录约定
+VirtuSim 是一个面向仓库移动机器人的 UE5 与 ROS2/Nav2 仿真项目。UE5 负责场景、机器人、虚拟 LiDAR 和交互界面，ROS2/Nav2 负责导航规划与控制，双方通过 ROS2 话题和 Action 组成完整的导航闭环。
 
 ```text
-Source/VirtuSim/           UE C++：通信、机器人、导航、场景、UI
-Content/                  UE 地图、蓝图、模型、动画和材质
-Plugins/                  TempoROS、UMGAutoBuilder 等依赖
-Config/Scenarios/         自动场景输入，UE 世界厘米 / 角度
-Config/UMGAutoBuilder/    UI 定义
-Docs/                     当前文档、排障记录和历史归档
-Tools/ROS2/               Ubuntu 脚本、参数、地图与离线测试
-Source/VirtuSim/Scene/NavigationMapExporter.* 当前 UE 关卡地图导出工具
-Skill/                    AI 协作与教学约定
-Saved/ScenarioResults/    UE 单轮报告，本机输出，不提交 Git
+UE5 场景 / LiDAR ── /scan、/odom、TF ──> ROS2 / Nav2
+      ^                                      |
+      └────────────── /cmd_vel ──────────────┘
+
+UE5 导航目标 / 取消 ──> Python Bridge ──> NavigateToPose
+场景 JSON ──> ScenarioRunner ──> 单轮执行与结果报告
 ```
 
-Windows 侧使用 UE 5.6 和对应 C++ 构建环境；Ubuntu 侧使用 ROS2 Humble、Nav2 和 RViz2。依赖插件、Git 子模块和 LFS 资产需准备齐全；具体运行步骤见运行指南。当前工程默认地图不是导航测试地图，需要在编辑器中手动打开 `LidarTestMap`。
+## 主要能力
 
-Ubuntu 需要替换的 Nav2 参数、地图和 ROS2 脚本集中在 [Tools/ROS2/deploy](Tools/ROS2/deploy)。`params/`、`maps/`、`scripts/` 仅用于开发和测试；归档后重复启动验证、动态场景实验和演示视频仍待补充。
+- UE5 C++ 仿真场景、移动机器人和虚拟二维 LiDAR。
+- LiDAR 扫描频率、角分辨率、视场、量程、噪声、丢点、延迟和随机种子等参数配置。
+- ROS2 Humble 与 Nav2 集成，支持目标下发、`/cmd_vel`、`/odom`、`/scan`、TF 和导航状态回传。
+- JSON 场景配置，支持机器人起点、目标、传感器参数和动态行人路线。
+- 单轮导航状态管理与结果报告，记录终态、耗时、实际行驶距离、传感器参数及动态障碍物几何重叠指标。
+- `NavigationMapExporter`：从 UE 关卡静态碰撞几何生成 Nav2 使用的 PGM、YAML、PNG 预览图和元数据。
 
-部署文件中的地图来自当前 UE 关卡，仍待完成导航验证。自动场景要求机器人标签唯一；新地图联调时曾因旧机器人与新机器人标签重复导致初始化失败，不能据此认定地图已验收。
+## 目录
+
+```text
+Source/VirtuSim/       UE C++：通信、机器人、LiDAR、场景、评测和 UI
+Content/               UE 关卡、蓝图、模型、动画和材质
+Plugins/               TempoROS、UMGAutoBuilder 等插件
+Config/Scenarios/      JSON 场景输入
+Config/UMGAutoBuilder/ UI 配置
+Docs/                  架构、运行、场景和地图导出说明
+Tools/ROS2/deploy/     Ubuntu 侧 Nav2 参数、地图和 Bridge 文件
+Saved/ScenarioResults/ UE 单轮运行报告（本地生成）
+```
+
+## 快速入口
+
+- [运行指南](Docs/运行指南.md)：启动 ROS2/Nav2、Bridge 和 UE 仿真。
+- [系统架构](Docs/系统架构.md)：查看模块职责和数据流。
+- [场景 JSON 格式](Docs/场景JSON格式.md)：修改自动场景输入。
+- [UE 场景地图导出](Docs/UE场景地图导出.md)：从当前关卡生成 Nav2 地图。
+- [ROS2 部署说明](Tools/ROS2/README.md)：Ubuntu 侧需要复制的运行文件和命令。
+
+## 运行环境
+
+- Windows：Unreal Engine 5.6、Visual Studio C++ 构建环境。
+- Ubuntu：ROS2 Humble、Nav2、RViz2 和 Python Bridge。
+- 机器人与场景坐标采用 UE 世界厘米；发送到 ROS2 时转换为米，并按项目约定处理 Y 轴方向。
+
+项目用于机器人导航仿真、传感器参数实验、场景执行和结果评测。模型、地图和传感器配置可按实际关卡与测试目标替换。

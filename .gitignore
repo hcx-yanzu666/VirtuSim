@@ -60,3 +60,7 @@ Docs/Archive/
 Docs/Troubleshooting/LiDAR镜像问题.md
 Docs/Troubleshooting/ROS2与Nav2排查.md
 Docs/面试准备/
+
+# Local-only planning and status notes
+Docs/演进路线.md
+Docs/项目现状与下一步.md
