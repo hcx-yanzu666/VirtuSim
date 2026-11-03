@@ -10,6 +10,9 @@ UE5 场景 / LiDAR ── /scan、/odom、TF ──> ROS2 / Nav2
 UE5 导航目标 / 取消 ──> Python Bridge ──> NavigateToPose
 场景 JSON ──> ScenarioRunner ──> 单轮执行与结果报告
 ```
+<img width="3094" height="1198" alt="bff4d8353684e4b3c5b4cb0b4d8fd376" src="https://github.com/user-attachments/assets/6499d1cb-659d-453d-99fc-c1c770a5a876" />
+<img width="2115" height="1845" alt="48c557f6b001944feba58aaa7672af16" src="https://github.com/user-attachments/assets/55513a60-bad7-4f0c-a798-b56894da4274" />
+<img width="2033" height="1833" alt="84adaefb1e263482a8c4098c11ce0d1c" src="https://github.com/user-attachments/assets/7fe2f9a5-50c4-47ae-88c9-9abbb3abb887" />
 
 ## 主要能力
 
