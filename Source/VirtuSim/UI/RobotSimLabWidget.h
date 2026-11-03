@@ -41,6 +41,10 @@ private:
     UFUNCTION()
     void HandleCancelNavigationClicked();
 
+	/** 在文件管理器中打开 JSON 报告目录。 */
+	UFUNCTION()
+	void HandleOpenReportDirectoryClicked();
+
 	/** 切换回导航监控页面。 */
 	UFUNCTION()
 	void HandleShowNavigationClicked();
@@ -86,6 +90,9 @@ private:
 
 	void SynchronizeSensorParameterFromSlider(int32 ParameterIndex, float Value);
 	void SynchronizeSensorParameterFromSpinBox(int32 ParameterIndex, float Value);
+
+	/** 从 Saved/ScenarioResults 读取最近一轮报告，只更新展示层，不参与导航控制。 */
+	void RefreshEvaluationReport();
 
 	bool bHasBuiltLayout = false;
 
@@ -158,6 +165,25 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> CommandAngularText = nullptr;
 
+	/** 最近一轮导航评测结果摘要。 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> EvaluationStateText = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> EvaluationElapsedText = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> EvaluationDistanceText = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> EvaluationOverlapText = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> EvaluationOverlapDurationText = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> EvaluationLidarText = nullptr;
+
 	/** 缓存已经显示的状态，避免每帧重复设置相同文本。 */
 	FString DisplayedNavigationStatus;
 
@@ -169,4 +195,7 @@ private:
 
 	/** 已显示里程计状态的时间戳，用于按 /odom 更新频率刷新机器人状态。 */
 	double DisplayedOdomTimestampSeconds = -1.0;
+	double NextEvaluationReportPollSeconds = 0.0;
+	/** 当前 UI 已显示的本轮结果 ID，防止每次轮询重复刷新。 */
+	FString DisplayedEvaluationRunId;
 };

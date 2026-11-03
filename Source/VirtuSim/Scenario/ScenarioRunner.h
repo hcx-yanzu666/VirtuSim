@@ -33,6 +33,12 @@ class VIRTUSIM_API AScenarioRunner : public AActor
 public:
     AScenarioRunner();
 
+    /** 只读结果入口：界面与 JSON 使用同一份终态快照，避免读取上一轮磁盘报告。 */
+    const FScenarioRunResult* GetCompletedRunResult() const;
+    FString GetRunStateText() const;
+    const FString& GetReportFilePath() const { return ReportFilePath; }
+    const FString& GetReportSaveError() const { return ReportSaveError; }
+
 protected:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
@@ -80,8 +86,10 @@ private:
     UPROPERTY(EditAnywhere, Category = "Scenario", meta = (ClampMin = "1.0"))
     float CancelWaitSeconds = 10.0f;
     void FinishRun(EScenarioRunState FinalState);
-    FString GetRunStateText() const;
     void WriteRunResult();
+    FScenarioRunResult CompletedRunResult;
+    FString ReportFilePath;
+    FString ReportSaveError;
     bool PrepareConfiguredPedestrians();
     void AccumulateTravelDistance();
     void SampleOverlapEvaluation();

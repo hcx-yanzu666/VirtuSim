@@ -17,8 +17,12 @@
 #include "Blueprint/UserWidget.h"
 #include "../Communication/RosCommunicationSubsystem.h"
 #include "../Robot/LidarComponent.h"
+#include "../Scenario/ScenarioRunner.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
 
 namespace
 {
@@ -303,8 +307,23 @@ TSharedRef<SWidget> URobotSimLabWidget::RebuildWidget()
 	AddStatusRow(WidgetTree, LidarCardContent, TEXT("噪声模型"), TEXT("未启用"));
 	AddActionButton(WidgetTree, LidarCardContent, TEXT("参数调节（下一阶段）"), kDisabledColor)->SetIsEnabled(false);
 	RightContent->AddChildToVerticalBox(CreateCard(WidgetTree, LidarCardContent));
-	AddCanvasWidget(RootCanvas, RightPanel, FVector2D(-16.0f, 80.0f), FVector2D(280.0f, 560.0f), FAnchors(1.0f, 0.0f), FVector2D(1.0f, 0.0f));
+	UVerticalBox* EvaluationCardContent = WidgetTree->ConstructWidget<UVerticalBox>();
+	AddPanelTitle(WidgetTree, EvaluationCardContent, TEXT("最近一轮评测结果"));
+	EvaluationStateText = AddStatusRow(WidgetTree, EvaluationCardContent, TEXT("导航结果"), TEXT("暂无报告"));
+	EvaluationElapsedText = AddStatusRow(WidgetTree, EvaluationCardContent, TEXT("导航耗时"), TEXT("-- s"));
+	EvaluationDistanceText = AddStatusRow(WidgetTree, EvaluationCardContent, TEXT("实际行驶距离"), TEXT("-- m"));
+	EvaluationOverlapText = AddStatusRow(WidgetTree, EvaluationCardContent, TEXT("重叠次数"), TEXT("--"));
+	EvaluationOverlapDurationText = AddStatusRow(WidgetTree, EvaluationCardContent, TEXT("重叠时长"), TEXT("-- s"));
+	EvaluationLidarText = CreateText(WidgetTree, TEXT("LiDAR 参数：等待报告"), 12, kLabelColor);
+	EvaluationLidarText->SetAutoWrapText(true);
+	EvaluationCardContent->AddChildToVerticalBox(EvaluationLidarText)->SetPadding(FMargin(0.0f, 8.0f, 0.0f, 0.0f));
+	UButton* OpenReportButton = AddActionButton(WidgetTree, EvaluationCardContent, TEXT("打开报告目录"), kPrimaryColor);
+	OpenReportButton->OnClicked.AddDynamic(this, &URobotSimLabWidget::HandleOpenReportDirectoryClicked);
+	RightContent->AddChildToVerticalBox(CreateCard(WidgetTree, EvaluationCardContent));
+	AddCanvasWidget(RootCanvas, RightPanel, FVector2D(-16.0f, 80.0f), FVector2D(280.0f, 800.0f), FAnchors(1.0f, 0.0f), FVector2D(1.0f, 0.0f));
 	NavigationPageWidgets.Add(RightPanel);
+	// 评测卡片只展示当前 ScenarioRunner 本轮完成的结果。
+	RefreshEvaluationReport();
 
 	UBorder* ViewTitlePanel = CreatePanel(WidgetTree);
 	ViewTitlePanel->SetPadding(FMargin(10.0f, 6.0f));
@@ -374,6 +393,13 @@ void URobotSimLabWidget::HandleCancelNavigationClicked()
         NavigationStatusText->SetText(FText::FromString(bSent
             ? TEXT("取消请求已发送，等待确认") : TEXT("取消请求发送失败")));
     }
+}
+
+void URobotSimLabWidget::HandleOpenReportDirectoryClicked()
+{
+	const FString Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("ScenarioResults"));
+	IFileManager::Get().MakeDirectory(*Directory, true);
+	FPlatformProcess::ExploreFolder(*Directory);
 }
 
 void URobotSimLabWidget::HandleShowSensorDebugClicked()
@@ -683,6 +709,13 @@ void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 		return;
 	}
 
+	NextEvaluationReportPollSeconds -= InDeltaTime;
+	if (NextEvaluationReportPollSeconds <= 0.0)
+	{
+		RefreshEvaluationReport();
+		NextEvaluationReportPollSeconds = 0.5;
+	}
+
 	const URosCommunicationSubsystem* RosSubsystem =
 		World->GetSubsystem<URosCommunicationSubsystem>();
 	if (RosSubsystem == nullptr)
@@ -736,6 +769,88 @@ void URobotSimLabWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTi
 	DisplayedOdomTimestampSeconds = CurrentOdom.TimestampSeconds;
 }
 
+void URobotSimLabWidget::RefreshEvaluationReport()
+{
+	if (EvaluationStateText == nullptr)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (World == nullptr)
+	{
+		return;
+	}
+
+	AScenarioRunner* Runner = nullptr;
+	for (TActorIterator<AScenarioRunner> It(World); It; ++It)
+	{
+		Runner = *It;
+		break;
+	}
+	if (Runner == nullptr)
+	{
+		EvaluationStateText->SetText(FText::FromString(TEXT("未找到场景运行器")));
+		EvaluationStateText->SetColorAndOpacity(kWarningColor);
+		return;
+	}
+
+	const FScenarioRunResult* Result = Runner->GetCompletedRunResult();
+	if (Result == nullptr)
+	{
+		const FString RunState = Runner->GetRunStateText();
+		FString DisplayState = TEXT("等待本轮导航完成");
+		if (RunState == TEXT("Initializing")) DisplayState = TEXT("场景初始化中");
+		else if (RunState == TEXT("WaitingForAcceptance")) DisplayState = TEXT("等待导航启动");
+		else if (RunState == TEXT("Navigating")) DisplayState = TEXT("导航进行中");
+		else if (RunState == TEXT("WaitingForCancel")) DisplayState = TEXT("正在等待取消确认");
+		EvaluationStateText->SetText(FText::FromString(DisplayState));
+		EvaluationStateText->SetColorAndOpacity(kPrimaryColor);
+		EvaluationElapsedText->SetText(FText::FromString(TEXT("-- s")));
+		EvaluationDistanceText->SetText(FText::FromString(TEXT("-- m")));
+		EvaluationOverlapText->SetText(FText::FromString(TEXT("--")));
+		EvaluationOverlapDurationText->SetText(FText::FromString(TEXT("-- s")));
+		EvaluationLidarText->SetText(FText::FromString(TEXT("LiDAR 参数：本轮结果生成后显示")));
+		DisplayedEvaluationRunId.Reset();
+		return;
+	}
+
+	if (DisplayedEvaluationRunId == Result->RunId)
+	{
+		return;
+	}
+	DisplayedEvaluationRunId = Result->RunId;
+	EvaluationStateText->SetText(GetNavigationStatusText(Result->State));
+	EvaluationStateText->SetColorAndOpacity(GetNavigationStatusColor(Result->State));
+	EvaluationElapsedText->SetText(FText::FromString(FString::Printf(TEXT("%.2f s"), Result->ElapsedSeconds)));
+	EvaluationDistanceText->SetText(Result->bTravelDistanceMeasured
+		? FText::FromString(FString::Printf(TEXT("%.2f m"), Result->TravelDistanceMeters))
+		: FText::FromString(TEXT("未测量")));
+	if (Result->bOverlapEvaluationAvailable)
+	{
+		EvaluationOverlapText->SetText(FText::AsNumber(Result->OverlapEpisodeCount));
+		EvaluationOverlapDurationText->SetText(FText::FromString(FString::Printf(TEXT("%.2f s"), Result->OverlapDurationSeconds)));
+	}
+	else
+	{
+		EvaluationOverlapText->SetText(FText::FromString(TEXT("未评估")));
+		EvaluationOverlapDurationText->SetText(FText::FromString(TEXT("未评估")));
+	}
+
+	const FLidarParameters& Lidar = Result->LidarParameters;
+	EvaluationLidarText->SetText(FText::FromString(FString::Printf(
+		TEXT("LiDAR：%.1f Hz | %.0f° / %.1f° | %.1f–%.1f m\n噪声 %s（%.3f m）| 丢点 %.0f%% | 延迟 %.0f ms | 种子 %d"),
+		Lidar.ScanFrequencyHz,
+		Lidar.HorizontalFovDegrees,
+		Lidar.AngleIncrementDegrees,
+		Lidar.RangeMinMeters,
+		Lidar.RangeMaxMeters,
+		Lidar.bNoiseEnabled ? TEXT("开") : TEXT("关"),
+		Lidar.NoiseStdDevMeters,
+		Lidar.DropoutProbability * 100.0f,
+		Lidar.FixedDelayMilliseconds,
+		Lidar.RandomSeed)));
+}
 void URobotSimLabWidget::HandleSetGoalClicked()
 {
 	APlayerController* PlayerController = GetOwningPlayer();

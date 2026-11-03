@@ -525,6 +525,11 @@ FString AScenarioRunner::GetRunStateText() const
 {
     switch (RunState)
     {
+    case EScenarioRunState::Idle: return TEXT("Idle");
+    case EScenarioRunState::Initializing: return TEXT("Initializing");
+    case EScenarioRunState::WaitingForAcceptance: return TEXT("WaitingForAcceptance");
+    case EScenarioRunState::WaitingForCancel: return TEXT("WaitingForCancel");
+    case EScenarioRunState::Navigating: return TEXT("Navigating");
     case EScenarioRunState::Succeeded: return TEXT("Succeeded");
     case EScenarioRunState::Failed: return TEXT("Failed");
     case EScenarioRunState::Canceled: return TEXT("Canceled");
@@ -534,6 +539,11 @@ FString AScenarioRunner::GetRunStateText() const
     case EScenarioRunState::Interrupted: return TEXT("Interrupted");
     default: return TEXT("Unknown");
     }
+}
+
+const FScenarioRunResult* AScenarioRunner::GetCompletedRunResult() const
+{
+    return CompletedRunResult.RunId.IsEmpty() ? nullptr : &CompletedRunResult;
 }
 
 void AScenarioRunner::WriteRunResult()
@@ -556,6 +566,8 @@ void AScenarioRunner::WriteRunResult()
     Result.GoalLocationCentimeters = Robot.Goal.LocationCentimeters;
     Result.GoalYawDegrees = Robot.Goal.YawDegrees;
     Result.LidarParameters = Robot.LidarParameters;
+    // 即使写文件失败，界面也能显示本轮真实结果；存盘状态单独显示。
+    CompletedRunResult = Result;
 
     const FString Directory = FPaths::Combine(
         FPaths::ProjectSavedDir(), TEXT("ScenarioResults"));
@@ -564,11 +576,12 @@ void AScenarioRunner::WriteRunResult()
         Directory,
         FString::Printf(TEXT("%s_%s.json"), *Scenario.ScenarioId, *RunId));
 
-    FString Error;
-    if (!FScenarioRunResultWriter::WriteJson(FilePath, Result, Error))
+    ReportSaveError.Reset();
+    if (!FScenarioRunResultWriter::WriteJson(FilePath, Result, ReportSaveError))
     {
-        UE_LOG(LogTemp, Error, TEXT("场景结果写入失败：%s"), *Error);
+        UE_LOG(LogTemp, Error, TEXT("场景结果写入失败：%s"), *ReportSaveError);
         return;
     }
+    ReportFilePath = FPaths::ConvertRelativePathToFull(FilePath);
     UE_LOG(LogTemp, Display, TEXT("场景结果已写入：%s"), *FilePath);
 }
