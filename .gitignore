@@ -70,3 +70,8 @@ Docs/系统架构.md
 
 # Local-only project learning skills
 /Skill/
+
+# Local perception training environment and generated outputs
+Tools/Perception/.venv/
+Saved/Perception/
+Dataset/Boxes/
